@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/charmbracelet/x/term"
 	"os"
 
 	"github.com/charmbracelet/bubbletea"
@@ -13,8 +12,10 @@ var ColorBlue = lipgloss.Color("12")
 var ColorWhite = lipgloss.Color("255")
 
 type model struct {
-	boxes []string
-	focus int
+	boxes      []string
+	focus      int
+	fullWidth  int
+	fullHeight int
 }
 
 func initialModel() model {
@@ -32,7 +33,10 @@ func (m model) Init() tea.Cmd {
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 
-	// Is it a key press?
+	case tea.WindowSizeMsg:
+		m.fullHeight = msg.Height
+		m.fullWidth = msg.Width
+
 	case tea.KeyMsg:
 
 		// Cool, what was the actual key pressed?
@@ -59,17 +63,24 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-func boxSize() (int, int) {
-	w, h, _ := term.GetSize(os.Stdout.Fd())
-	return (w / 4) - 2, (h / 2) - 2
+func (m model) boxSize() (int, int) {
+	return m.fullWidth / 4, m.fullHeight / 2
+}
+
+func generateBorder() lipgloss.Border {
+	return lipgloss.RoundedBorder()
+}
+
+func (m model) boxStyle() lipgloss.Style {
+	w, h := m.boxSize()
+	return lipgloss.NewStyle().
+		Border(generateBorder()).
+		Width(w - 2).
+		Height(h - 2)
 }
 
 func (m model) View() string {
-	w, h := boxSize()
-	var style = lipgloss.NewStyle().
-		Width(w).
-		Height(h).
-		BorderStyle(lipgloss.NormalBorder())
+	var style = m.boxStyle()
 	return lipgloss.JoinVertical(lipgloss.Top, m.renderRow(style, 0, 4), m.renderRow(style, 4, 8))
 }
 
