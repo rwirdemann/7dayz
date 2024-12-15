@@ -47,7 +47,7 @@ func (d itemDelegate) Render(w io.Writer, m list.Model, index int, listItem list
 
 type model struct {
 	boxes      []string
-	inbox      list.Model
+	lists      []list.Model
 	focus      int
 	fullWidth  int
 	fullHeight int
@@ -60,17 +60,22 @@ func initialModel() model {
 		item("Stunden aufschreiben"),
 	}
 
-	l := list.New(items, itemDelegate{}, 20, 14)
-	l.SetShowTitle(false)
-	l.SetShowStatusBar(false)
-	l.SetFilteringEnabled(false)
-	l.SetShowHelp(false)
-	l.Styles.PaginationStyle = list.DefaultStyles().PaginationStyle.PaddingLeft(2)
+	boxes := []string{"Inbox", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"}
+	var lists []list.Model
+	for range boxes {
+		l := list.New(items, itemDelegate{}, 20, 14)
+		l.SetShowTitle(false)
+		l.SetShowStatusBar(false)
+		l.SetFilteringEnabled(false)
+		l.SetShowHelp(false)
+		l.Styles.PaginationStyle = list.DefaultStyles().PaginationStyle.PaddingLeft(2)
+		lists = append(lists, l)
+	}
 
 	return model{
 		focus: 0,
-		inbox: l,
-		boxes: []string{"Inbox", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"},
+		lists: lists,
+		boxes: boxes,
 	}
 }
 
@@ -79,18 +84,19 @@ func (m model) Init() tea.Cmd {
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	switch msg := msg.(type) {
+	var cmd tea.Cmd
+	var cmds []tea.Cmd
 
+	m.lists[m.focus], cmd = m.lists[m.focus].Update(msg)
+	cmds = append(cmds, cmd)
+
+	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.fullHeight = msg.Height
 		m.fullWidth = msg.Width
 
 	case tea.KeyMsg:
-
-		// Cool, what was the actual key pressed?
 		switch msg.String() {
-
-		// These keys should exit the program.
 		case "ctrl+c", "q":
 			return m, tea.Quit
 		case "tab":
@@ -108,7 +114,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	}
 
-	return m, nil
+	return m, tea.Batch(cmds...)
 }
 
 func (m model) boxSize() (int, int) {
@@ -140,14 +146,9 @@ func (m model) renderRow(style lipgloss.Style, start, end int) string {
 		} else {
 			style = style.BorderForeground(ColorWhite)
 		}
-		if i == 0 {
-			m.inbox.SetHeight(style.GetHeight() - 6)
-			s := lipgloss.JoinVertical(lipgloss.Top, m.boxes[i], m.inbox.View())
-			r = lipgloss.JoinHorizontal(lipgloss.Top, r, style.Render(s))
-		} else {
-			r = lipgloss.JoinHorizontal(lipgloss.Top, r, style.Render(m.boxes[i]))
-		}
-
+		m.lists[i].SetHeight(style.GetHeight() - 6)
+		s := lipgloss.JoinVertical(lipgloss.Top, m.boxes[i], m.lists[i].View())
+		r = lipgloss.JoinHorizontal(lipgloss.Top, r, style.Render(s))
 	}
 	return r
 }
