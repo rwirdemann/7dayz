@@ -1,4 +1,4 @@
-module github.com/rwirdemann/weekplnr
+module github.com/rwirdemann/weekplanner
 
 go 1.23.2
 

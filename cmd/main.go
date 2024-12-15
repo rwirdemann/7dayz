@@ -3,78 +3,41 @@ package main
 import (
 	"fmt"
 	"github.com/charmbracelet/bubbles/list"
+	"github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"io"
-	"log/slog"
+	"github.com/rwirdemann/weekplanner"
 	"os"
 	"strings"
-
-	"github.com/charmbracelet/bubbletea"
 )
 
 var ColorBlue = lipgloss.Color("12")
 var ColorWhite = lipgloss.Color("255")
 
-type item string
-
-func (i item) FilterValue() string {
-	return ""
-}
-
-type itemDelegate struct{}
-
-func (d itemDelegate) Height() int                             { return 1 }
-func (d itemDelegate) Spacing() int                            { return 0 }
-func (d itemDelegate) Update(_ tea.Msg, _ *list.Model) tea.Cmd { return nil }
-func (d itemDelegate) Render(w io.Writer, m list.Model, index int, listItem list.Item) {
-	i, ok := listItem.(item)
-	if !ok {
-		return
-	}
-
-	fn := lipgloss.NewStyle().PaddingLeft(2).Render
-	if index == m.Index() {
-		fn = func(s ...string) string {
-			return lipgloss.NewStyle().PaddingLeft(0).Foreground(lipgloss.Color("170")).Render("> " + strings.Join(s, " "))
-		}
-	}
-
-	_, err := fmt.Fprint(w, fn(fmt.Sprintf("%s", i)))
-	if err != nil {
-		slog.Error(err.Error())
-	}
-}
-
 type model struct {
-	boxes      []string
-	lists      []list.Model
+	boxes      []weekplanner.Box
 	focus      int
 	fullWidth  int
 	fullHeight int
 }
 
 func initialModel() model {
-	var items = []list.Item{
-		item("XMas-Karten unterschreiben"),
-		item("Register Manager weiter bauen"),
-		item("Stunden aufschreiben"),
-	}
-
-	boxes := []string{"Inbox", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"}
-	var lists []list.Model
-	for range boxes {
-		l := list.New(items, itemDelegate{}, 20, 14)
-		l.SetShowTitle(false)
-		l.SetShowStatusBar(false)
-		l.SetFilteringEnabled(false)
-		l.SetShowHelp(false)
-		l.Styles.PaginationStyle = list.DefaultStyles().PaginationStyle.PaddingLeft(2)
-		lists = append(lists, l)
+	titles := []string{"Inbox", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"}
+	var boxes []weekplanner.Box
+	for _, t := range titles {
+		var items []list.Item
+		if t == "Inbox" {
+			items = []list.Item{
+				weekplanner.Item("XMas-Karten unterschreiben"),
+				weekplanner.Item("Register Manager weiter bauen"),
+				weekplanner.Item("Stunden aufschreiben"),
+			}
+		}
+		b := weekplanner.NewBox(t, items, 20, 14)
+		boxes = append(boxes, b)
 	}
 
 	return model{
 		focus: 0,
-		lists: lists,
 		boxes: boxes,
 	}
 }
@@ -87,7 +50,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 	var cmds []tea.Cmd
 
-	m.lists[m.focus], cmd = m.lists[m.focus].Update(msg)
+	m.boxes[m.focus], cmd = m.boxes[m.focus].Update(msg)
 	cmds = append(cmds, cmd)
 
 	switch msg := msg.(type) {
@@ -118,37 +81,65 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m model) boxSize() (int, int) {
-	return m.fullWidth / 4, m.fullHeight / 2
+	width := 0
+	if m.fullWidth%4 != 0 {
+		width = footerWidth(m.fullWidth + m.fullWidth%4 + 2)
+	} else {
+		width = footerWidth(m.fullWidth)
+	}
+
+	height := 0
+	if m.fullHeight%2 != 0 {
+		height = footerHeight(m.fullHeight + m.fullHeight%2 + 2)
+	} else {
+		height = footerHeight(m.fullHeight)
+	}
+
+	return width, height
 }
 
-func generateBorder() lipgloss.Border {
-	return lipgloss.RoundedBorder()
+func footerWidth(fullWidth int) int {
+	return fullWidth/4 - 2
 }
 
-func (m model) boxStyle() lipgloss.Style {
+func footerHeight(fullHeight int) int {
+	return fullHeight/2 - 2
+}
+
+func generateBorder(title string, width int) lipgloss.Border {
+	if width < 0 {
+		return lipgloss.RoundedBorder()
+	}
+	border := lipgloss.RoundedBorder()
+	border.Top = border.Top + border.MiddleRight + " " + title + " " + border.MiddleLeft + strings.Repeat(border.Top, width)
+	return border
+}
+
+func (m model) boxStyle(title string) lipgloss.Style {
 	w, h := m.boxSize()
 	return lipgloss.NewStyle().
-		Border(generateBorder()).
-		Width(w - 2).
-		Height(h - 2)
+		Border(generateBorder(title, w)).
+		Width(w).
+		Height(h)
 }
 
 func (m model) View() string {
-	var style = m.boxStyle()
-	return lipgloss.JoinVertical(lipgloss.Top, m.renderRow(style, 0, 4), m.renderRow(style, 4, 8))
+	boxesPerRow := len(m.boxes) / 2
+	return lipgloss.JoinVertical(lipgloss.Top,
+		m.renderRow(0, boxesPerRow),
+		m.renderRow(boxesPerRow, len(m.boxes)))
 }
 
-func (m model) renderRow(style lipgloss.Style, start, end int) string {
+func (m model) renderRow(start, end int) string {
 	r := ""
 	for i := start; i < end; i++ {
+		var style = m.boxStyle(m.boxes[i].Title)
 		if m.focus == i {
 			style = style.BorderForeground(ColorBlue)
 		} else {
 			style = style.BorderForeground(ColorWhite)
 		}
-		m.lists[i].SetHeight(style.GetHeight() - 6)
-		s := lipgloss.JoinVertical(lipgloss.Top, m.boxes[i], m.lists[i].View())
-		r = lipgloss.JoinHorizontal(lipgloss.Top, r, style.Render(s))
+		r = lipgloss.JoinHorizontal(lipgloss.Right, r, style.Render(m.boxes[i].View()))
 	}
 	return r
 }
