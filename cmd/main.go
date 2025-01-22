@@ -5,6 +5,7 @@ import (
 	"github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/x/term"
 	"github.com/rwirdemann/weekplanner"
 	"os"
 	"strings"
@@ -36,13 +37,16 @@ func initialModel() model {
 				weekplanner.Item("Health Monitor reviewen"),
 			}
 		}
-		b := weekplanner.NewBox(t, items, 0, 0)
+		b := weekplanner.NewBox(t, items)
 		boxes = append(boxes, b)
 	}
 
+	width, height, _ := term.GetSize(0)
 	return model{
-		focus: 0,
-		boxes: boxes,
+		fullWidth:  width,
+		fullHeight: height,
+		focus:      0,
+		boxes:      boxes,
 	}
 }
 
@@ -72,11 +76,28 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			} else {
 				m.focus++
 			}
+			weekplanner.ActiveBox = m.boxes[m.focus].Title
 		case "shift+tab":
 			if m.focus == 0 {
 				m.focus = 7
 			} else {
 				m.focus--
+			}
+			weekplanner.ActiveBox = m.boxes[m.focus].Title
+
+		// Move item to next box
+		case "m":
+			if m.focus < 7 {
+				selected := m.boxes[m.focus].SelectedItem()
+				m.boxes[m.focus].RemoveItem(m.boxes[m.focus].Index())
+				m.boxes[m.focus+1].InsertItem(0, selected)
+			}
+		// Move item to next box
+		case "b":
+			if m.focus > 0 {
+				selected := m.boxes[m.focus].SelectedItem()
+				m.boxes[m.focus].RemoveItem(m.boxes[m.focus].Index())
+				m.boxes[m.focus-1].InsertItem(0, selected)
 			}
 		}
 	}
@@ -94,7 +115,13 @@ func generateBorder(title string, width int) lipgloss.Border {
 }
 
 func (m model) View() string {
-	style := lipgloss.NewStyle().Width(m.fullWidth/4 - 2).Height(m.fullHeight/2 - 2)
+	w, h := m.fullWidth/4-2, m.fullHeight/2-2
+
+	// Skip first rendering when we don't know the terminal size yet
+	if w <= 0 || h <= 0 {
+		return ""
+	}
+	style := lipgloss.NewStyle().Width(w).Height(h)
 	row1 := m.renderRow(0, 4, style)
 	row2 := m.renderRow(4, 8, style)
 	return lipgloss.JoinVertical(lipgloss.Top, row1, row2)
