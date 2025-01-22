@@ -3,12 +3,18 @@ package main
 import (
 	"fmt"
 	"github.com/charmbracelet/bubbles/list"
+	"github.com/charmbracelet/bubbles/textinput"
 	"github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/charmbracelet/x/term"
 	"github.com/rwirdemann/weekplanner"
 	"os"
 	"strings"
+)
+
+const (
+	none = iota
+	edit = iota
+	add
 )
 
 var ColorBlue = lipgloss.Color("12")
@@ -19,6 +25,8 @@ type model struct {
 	focus      int
 	fullWidth  int
 	fullHeight int
+	textinput  textinput.Model
+	mode       int
 }
 
 func initialModel() model {
@@ -41,12 +49,11 @@ func initialModel() model {
 		boxes = append(boxes, b)
 	}
 
-	width, height, _ := term.GetSize(0)
 	return model{
-		fullWidth:  width,
-		fullHeight: height,
-		focus:      0,
-		boxes:      boxes,
+		focus:     0,
+		boxes:     boxes,
+		textinput: textinput.New(),
+		mode:      none,
 	}
 }
 
@@ -58,9 +65,44 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 	var cmds []tea.Cmd
 
+	// Handle text input in the footer
+	if m.textinput.Focused() {
+		m.textinput, cmd = m.textinput.Update(msg)
+		cmds = append(cmds, cmd)
+
+		switch msg := msg.(type) {
+		case tea.KeyMsg:
+			switch msg.String() {
+			case "enter":
+				value := m.textinput.Value()
+				if len(strings.TrimSpace(value)) > 0 {
+					if m.mode == add {
+						m.boxes[m.focus].InsertItem(0, weekplanner.Item(value))
+					}
+
+					if m.mode == edit {
+						m.boxes[m.focus].RemoveItem(m.boxes[m.focus].Index())
+						m.boxes[m.focus].InsertItem(m.boxes[m.focus].Index(), weekplanner.Item(value))
+					}
+				}
+
+				m.textinput.Reset()
+				m.textinput.Blur()
+				m.mode = none
+			case "esc":
+				m.textinput.Reset()
+				m.textinput.Blur()
+				m.mode = none
+			}
+		}
+		return m, tea.Batch(cmds...)
+	}
+
+	// Update active box
 	m.boxes[m.focus], cmd = m.boxes[m.focus].Update(msg)
 	cmds = append(cmds, cmd)
 
+	// Handle global key strokes
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.fullHeight = msg.Height
@@ -68,21 +110,30 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case tea.KeyMsg:
 		switch msg.String() {
+
+		// Exit
 		case "ctrl+c", "q":
 			return m, tea.Quit
+
+		// Move focus to next box
 		case "tab":
 			if m.focus == 7 {
 				m.focus = 0
 			} else {
 				m.focus++
 			}
+
+			// Tell box logic which box is active to enable proper rendering of selected item
 			weekplanner.ActiveBox = m.boxes[m.focus].Title
+
+		// Move focus to prev box
 		case "shift+tab":
 			if m.focus == 0 {
 				m.focus = 7
 			} else {
 				m.focus--
 			}
+			// Tell box logic which box is active to enable proper rendering of selected item
 			weekplanner.ActiveBox = m.boxes[m.focus].Title
 
 		// Move item to next box
@@ -92,6 +143,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.boxes[m.focus].RemoveItem(m.boxes[m.focus].Index())
 				m.boxes[m.focus+1].InsertItem(0, selected)
 			}
+
 		// Move item to next box
 		case "b":
 			if m.focus > 0 {
@@ -99,19 +151,22 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.boxes[m.focus].RemoveItem(m.boxes[m.focus].Index())
 				m.boxes[m.focus-1].InsertItem(0, selected)
 			}
+
+		// Edit selected item in footer
+		case "enter":
+			selected := m.boxes[m.focus].SelectedItem()
+			m.textinput.SetValue(string(selected.(weekplanner.Item)))
+			m.textinput.Focus()
+			m.mode = edit
+
+		// Add new item
+		case "n":
+			m.textinput.Focus()
+			m.mode = add
 		}
 	}
 
 	return m, tea.Batch(cmds...)
-}
-
-func generateBorder(title string, width int) lipgloss.Border {
-	if width < 0 {
-		return lipgloss.RoundedBorder()
-	}
-	border := lipgloss.RoundedBorder()
-	border.Top = border.Top + border.MiddleRight + " " + title + " " + border.MiddleLeft + strings.Repeat(border.Top, width)
-	return border
 }
 
 func (m model) View() string {
@@ -123,8 +178,21 @@ func (m model) View() string {
 	}
 	style := lipgloss.NewStyle().Width(w).Height(h)
 	row1 := m.renderRow(0, 4, style)
+
+	// Reduce height of second row to fit textinput underneath
+	style = style.Height(h - 1)
 	row2 := m.renderRow(4, 8, style)
-	return lipgloss.JoinVertical(lipgloss.Top, row1, row2)
+	row3 := " " + m.textinput.View()
+	return lipgloss.JoinVertical(lipgloss.Top, row1, row2, row3)
+}
+
+func generateBorder(title string, width int) lipgloss.Border {
+	if width < 0 {
+		return lipgloss.RoundedBorder()
+	}
+	border := lipgloss.RoundedBorder()
+	border.Top = border.Top + border.MiddleRight + " " + title + " " + border.MiddleLeft + strings.Repeat(border.Top, width)
+	return border
 }
 
 func (m model) renderRow(start, end int, style lipgloss.Style) string {
