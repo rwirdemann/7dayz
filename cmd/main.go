@@ -30,9 +30,13 @@ func initialModel() model {
 				weekplanner.Item("XMas-Karten unterschreiben"),
 				weekplanner.Item("Register Manager weiter bauen"),
 				weekplanner.Item("Stunden aufschreiben"),
+				weekplanner.Item("Konzept erstellen"),
+				weekplanner.Item("Miete anbieten"),
+				weekplanner.Item("LTE App reviewen"),
+				weekplanner.Item("Health Monitor reviewen"),
 			}
 		}
-		b := weekplanner.NewBox(t, items, 20, 14)
+		b := weekplanner.NewBox(t, items, 0, 0)
 		boxes = append(boxes, b)
 	}
 
@@ -80,32 +84,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, tea.Batch(cmds...)
 }
 
-func (m model) boxSize() (int, int) {
-	width := 0
-	if m.fullWidth%4 != 0 {
-		width = footerWidth(m.fullWidth + m.fullWidth%4 + 2)
-	} else {
-		width = footerWidth(m.fullWidth)
-	}
-
-	height := 0
-	if m.fullHeight%2 != 0 {
-		height = footerHeight(m.fullHeight + m.fullHeight%2 + 2)
-	} else {
-		height = footerHeight(m.fullHeight)
-	}
-
-	return width, height
-}
-
-func footerWidth(fullWidth int) int {
-	return fullWidth/4 - 2
-}
-
-func footerHeight(fullHeight int) int {
-	return fullHeight/2 - 2
-}
-
 func generateBorder(title string, width int) lipgloss.Border {
 	if width < 0 {
 		return lipgloss.RoundedBorder()
@@ -115,31 +93,28 @@ func generateBorder(title string, width int) lipgloss.Border {
 	return border
 }
 
-func (m model) boxStyle(title string) lipgloss.Style {
-	w, h := m.boxSize()
-	return lipgloss.NewStyle().
-		Border(generateBorder(title, w)).
-		Width(w).
-		Height(h)
-}
-
 func (m model) View() string {
-	boxesPerRow := len(m.boxes) / 2
-	return lipgloss.JoinVertical(lipgloss.Top,
-		m.renderRow(0, boxesPerRow),
-		m.renderRow(boxesPerRow, len(m.boxes)))
+	style := lipgloss.NewStyle().Width(m.fullWidth/4 - 2).Height(m.fullHeight/2 - 2)
+	row1 := m.renderRow(0, 4, style)
+	row2 := m.renderRow(4, 8, style)
+	return lipgloss.JoinVertical(lipgloss.Top, row1, row2)
 }
 
-func (m model) renderRow(start, end int) string {
+func (m model) renderRow(start, end int, style lipgloss.Style) string {
 	r := ""
 	for i := start; i < end; i++ {
-		var style = m.boxStyle(m.boxes[i].Title)
 		if m.focus == i {
 			style = style.BorderForeground(ColorBlue)
 		} else {
 			style = style.BorderForeground(ColorWhite)
 		}
-		r = lipgloss.JoinHorizontal(lipgloss.Right, r, style.Render(m.boxes[i].View()))
+
+		// Adapt the box list model to current box dimensions
+		m.boxes[i].SetHeight(style.GetHeight())
+		m.boxes[i].SetWidth(style.GetWidth())
+
+		style = style.Border(generateBorder(m.boxes[i].Title, style.GetWidth()))
+		r = lipgloss.JoinHorizontal(lipgloss.Top, r, style.Render(m.boxes[i].View()))
 	}
 	return r
 }
