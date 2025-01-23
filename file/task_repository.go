@@ -5,13 +5,24 @@ import (
 	"github.com/rwirdemann/weekplanner"
 	"log"
 	"os"
+	"path"
 )
+
+var base = "tasks.json"
+
+func init() {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		log.Fatal(err)
+	}
+	base = home + "/.7d/"
+}
 
 type TaskRepository struct {
 }
 
 func (t TaskRepository) Load() []weekplanner.Task {
-	file, err := os.Open("tasks.json")
+	file, err := os.Open(path.Join(base, "tasks.json"))
 	if err != nil {
 		log.Fatalf("Failed to open tasks.json: %v", err)
 	}
@@ -30,7 +41,7 @@ func (t TaskRepository) Load() []weekplanner.Task {
 }
 
 func (t TaskRepository) Save(tasks []weekplanner.Task) {
-	file, err := os.Create("tasks.json")
+	file, err := os.Create(path.Join(base, "tasks.json"))
 	if err != nil {
 		log.Fatalf("Failed to create tasks.json: %v", err)
 	}
