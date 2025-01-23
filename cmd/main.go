@@ -162,19 +162,41 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, tea.Batch(cmds...)
 }
 
+func (m model) size() (int, int, int, int) {
+	var w, h, wDelta, hDelta int
+	if (m.fullWidth - 8%4) == 0 {
+		w = (m.fullWidth - 8) / 4
+	} else {
+		wDelta = (m.fullWidth - 8) % 4
+		w = (m.fullWidth - 8) / 4
+	}
+
+	const extraHeight = 8
+	if (m.fullHeight - extraHeight%2) == 0 {
+		h = (m.fullHeight - extraHeight) / 2
+	} else {
+		hDelta = (m.fullHeight - extraHeight) % 2
+		h = (m.fullHeight - extraHeight) / 2
+	}
+
+	h = m.fullHeight/2 - 2
+
+	return w, h, wDelta, hDelta
+}
+
 func (m model) View() string {
-	w, h := m.fullWidth/4-2, m.fullHeight/2-2
+	w, h, wDelta, hDelta := m.size()
 
 	// Skip first rendering when we don't know the terminal size yet
 	if w <= 0 || h <= 0 {
 		return ""
 	}
 	style := lipgloss.NewStyle().Width(w).Height(h)
-	row1 := m.renderRow(0, 4, style)
+	row1 := m.renderRow(0, 4, style, wDelta, hDelta)
 
 	// Reduce height of second row to fit textinput underneath
-	style = style.Height(h - 1)
-	row2 := m.renderRow(4, 8, style)
+	style = style.Height(h - 2)
+	row2 := m.renderRow(4, 8, style, wDelta, hDelta)
 
 	var footer string
 	switch m.mode {
@@ -200,13 +222,21 @@ func generateBorder(title string, width int) lipgloss.Border {
 	return border
 }
 
-func (m model) renderRow(start, end int, style lipgloss.Style) string {
+func (m model) renderRow(start, end int, style lipgloss.Style, wDelta int, hDelta int) string {
 	r := ""
 	for i := start; i < end; i++ {
 		if m.boxModel.Focus == i {
 			style = style.BorderForeground(ColorBlue)
 		} else {
 			style = style.BorderForeground(ColorWhite)
+		}
+
+		if i == 3 || i == 7 {
+			style = style.Width(style.GetWidth() + wDelta)
+		}
+
+		if i == 4 {
+			style = style.Height(style.GetHeight() + hDelta)
 		}
 
 		// Adapt the box list model to current box dimensions
