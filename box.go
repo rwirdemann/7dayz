@@ -14,12 +14,6 @@ import (
 // the currently active box.
 var ActiveBox = "Inbox"
 
-type Item string
-
-func (i Item) FilterValue() string {
-	return ""
-}
-
 type itemDelegate struct {
 	boxTitle string
 }
@@ -28,21 +22,21 @@ func (d itemDelegate) Height() int                             { return 1 }
 func (d itemDelegate) Spacing() int                            { return 0 }
 func (d itemDelegate) Update(_ tea.Msg, _ *list.Model) tea.Cmd { return nil }
 func (d itemDelegate) Render(w io.Writer, m list.Model, index int, listItem list.Item) {
-	i, ok := listItem.(Item)
+	task, ok := listItem.(Task)
 	if !ok {
 		return
 	}
 
-	fn := lipgloss.NewStyle().PaddingLeft(2).Render
+	fn := lipgloss.NewStyle().Strikethrough(task.Done).PaddingLeft(2).Render
 
 	// Render selection pointer only for the currently active box.
 	if ActiveBox == d.boxTitle && index == m.Index() {
 		fn = func(s ...string) string {
-			return lipgloss.NewStyle().PaddingLeft(0).Foreground(lipgloss.Color("170")).Render("> " + strings.Join(s, " "))
+			return lipgloss.NewStyle().Strikethrough(task.Done).PaddingLeft(0).Foreground(lipgloss.Color("170")).Render("> " + strings.Join(s, " "))
 		}
 	}
 
-	_, err := fmt.Fprint(w, fn(fmt.Sprintf("%s", i)))
+	_, err := fmt.Fprint(w, fn(task.Name))
 	if err != nil {
 		slog.Error(err.Error())
 	}
