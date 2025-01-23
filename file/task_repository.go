@@ -2,7 +2,7 @@ package file
 
 import (
 	"encoding/json"
-	"github.com/rwirdemann/weekplanner"
+	"github.com/rwirdemann/7dayz"
 	"log"
 	"os"
 	"path"
@@ -21,7 +21,7 @@ func init() {
 type TaskRepository struct {
 }
 
-func (t TaskRepository) Load() []weekplanner.Task {
+func (t TaskRepository) Load() []_dayz.Task {
 	file, err := os.Open(path.Join(base, "tasks.json"))
 	if err != nil {
 		log.Fatalf("Failed to open tasks.json: %v", err)
@@ -29,7 +29,7 @@ func (t TaskRepository) Load() []weekplanner.Task {
 	defer file.Close()
 
 	var tasks struct {
-		Tasks []weekplanner.Task `json:"tasks"`
+		Tasks []_dayz.Task `json:"tasks"`
 	}
 
 	decoder := json.NewDecoder(file)
@@ -40,7 +40,7 @@ func (t TaskRepository) Load() []weekplanner.Task {
 	return tasks.Tasks
 }
 
-func (t TaskRepository) Save(tasks []weekplanner.Task) {
+func (t TaskRepository) Save(tasks []_dayz.Task) {
 	file, err := os.Create(path.Join(base, "tasks.json"))
 	if err != nil {
 		log.Fatalf("Failed to create tasks.json: %v", err)
@@ -48,7 +48,7 @@ func (t TaskRepository) Save(tasks []weekplanner.Task) {
 	defer file.Close()
 
 	data := struct {
-		Tasks []weekplanner.Task `json:"tasks"`
+		Tasks []_dayz.Task `json:"tasks"`
 	}{
 		Tasks: tasks,
 	}
