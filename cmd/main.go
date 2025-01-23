@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/bubbles/textinput"
 	"github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -24,46 +23,19 @@ var ColorWhite = lipgloss.Color("255")
 var ColorGrey = lipgloss.Color("240")
 
 type model struct {
-	boxes      []weekplanner.Box
-	focus      int
+	boxModel   weekplanner.BoxModel
 	fullWidth  int
 	fullHeight int
 	textinput  textinput.Model
 	mode       int
 }
 
-var taskRepository = file.TaskRepository{}
-
 func initialModel() model {
-	titles := []string{"Inbox", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"}
-	var boxes []weekplanner.Box
-	for _, t := range titles {
-		var items []list.Item
-		b := weekplanner.NewBox(t, items)
-		boxes = append(boxes, b)
-	}
-
-	tasks := taskRepository.Load()
-	for _, task := range tasks {
-		boxes[task.Day].InsertItem(0, task)
-	}
-
 	return model{
-		focus:     0,
-		boxes:     boxes,
+		boxModel:  weekplanner.NewBoxModel(file.TaskRepository{}),
 		textinput: textinput.New(),
 		mode:      none,
 	}
-}
-
-func (m model) save() {
-	var tasks []weekplanner.Task
-	for _, box := range m.boxes {
-		for _, item := range box.Items() {
-			tasks = append(tasks, item.(weekplanner.Task))
-		}
-	}
-	taskRepository.Save(tasks)
 }
 
 func (m model) Init() tea.Cmd {
@@ -86,12 +58,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				value := m.textinput.Value()
 				if len(strings.TrimSpace(value)) > 0 {
 					if m.mode == add {
-						m.boxes[m.focus].InsertItem(0, weekplanner.Task{Name: value, Day: m.focus})
+						m.boxModel.Boxes[m.boxModel.Focus].InsertItem(0, weekplanner.Task{Name: value, Day: m.boxModel.Focus})
 					}
 
 					if m.mode == edit {
-						m.boxes[m.focus].RemoveItem(m.boxes[m.focus].Index())
-						m.boxes[m.focus].InsertItem(m.boxes[m.focus].Index(), weekplanner.Task{Name: value})
+						m.boxModel.Update(value, m.boxModel.Focus)
 					}
 				}
 
@@ -108,7 +79,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
 	// Update active box
-	m.boxes[m.focus], cmd = m.boxes[m.focus].Update(msg)
+	m.boxModel.Boxes[m.boxModel.Focus], cmd = m.boxModel.Boxes[m.boxModel.Focus].Update(msg)
 	cmds = append(cmds, cmd)
 
 	// Handle global key strokes
@@ -122,51 +93,47 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		// Exit
 		case "ctrl+c", "q":
-			m.save()
+			m.boxModel.Save()
 			return m, tea.Quit
 
 		// Move focus to next box
 		case "tab":
-			if m.focus == 7 {
-				m.focus = 0
-			} else {
-				m.focus++
-			}
+			m.boxModel = m.boxModel.NextDay()
 
 			// Tell box logic which box is active to enable proper rendering of selected item
-			weekplanner.ActiveBox = m.boxes[m.focus].Title
+			weekplanner.ActiveBox = m.boxModel.Boxes[m.boxModel.Focus].Title
 
 		// Move focus to prev box
 		case "shift+tab":
-			if m.focus == 0 {
-				m.focus = 7
+			if m.boxModel.Focus == 0 {
+				m.boxModel.Focus = 7
 			} else {
-				m.focus--
+				m.boxModel.Focus--
 			}
 			// Tell box logic which box is active to enable proper rendering of selected item
-			weekplanner.ActiveBox = m.boxes[m.focus].Title
+			weekplanner.ActiveBox = m.boxModel.Boxes[m.boxModel.Focus].Title
 
 		// Move item to next box
 		case "m":
-			if item := m.boxes[m.focus].SelectedItem(); item != nil && m.focus < 7 {
+			if item := m.boxModel.Boxes[m.boxModel.Focus].SelectedItem(); item != nil && m.boxModel.Focus < 7 {
 				t := item.(weekplanner.Task)
-				m.boxes[m.focus].RemoveItem(m.boxes[m.focus].Index())
-				t.Day = m.focus + 1
-				m.boxes[m.focus+1].InsertItem(0, t)
+				m.boxModel.Boxes[m.boxModel.Focus].RemoveItem(m.boxModel.Boxes[m.boxModel.Focus].Index())
+				t.Day = m.boxModel.Focus + 1
+				m.boxModel.Boxes[m.boxModel.Focus+1].InsertItem(0, t)
 			}
 
 		// Move item to next box
 		case "b":
-			if item := m.boxes[m.focus].SelectedItem(); item != nil && m.focus > 0 {
+			if item := m.boxModel.Boxes[m.boxModel.Focus].SelectedItem(); item != nil && m.boxModel.Focus > 0 {
 				t := item.(weekplanner.Task)
-				m.boxes[m.focus].RemoveItem(m.boxes[m.focus].Index())
-				t.Day = m.focus - 1
-				m.boxes[m.focus-1].InsertItem(0, t)
+				m.boxModel.Boxes[m.boxModel.Focus].RemoveItem(m.boxModel.Boxes[m.boxModel.Focus].Index())
+				t.Day = m.boxModel.Focus - 1
+				m.boxModel.Boxes[m.boxModel.Focus-1].InsertItem(0, t)
 			}
 
 		// Edit selected item in footer
 		case "enter":
-			selected := m.boxes[m.focus].SelectedItem()
+			selected := m.boxModel.Boxes[m.boxModel.Focus].SelectedItem()
 			m.textinput.SetValue(selected.(weekplanner.Task).Name)
 			m.textinput.Focus()
 			m.mode = edit
@@ -177,18 +144,18 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.mode = add
 
 		// Cross item off or on
-		case "x":
-			selected := m.boxes[m.focus].SelectedItem().(weekplanner.Task)
+		case " ":
+			selected := m.boxModel.Boxes[m.boxModel.Focus].SelectedItem().(weekplanner.Task)
 			selected.Done = !selected.Done
-			m.boxes[m.focus].RemoveItem(m.boxes[m.focus].Index())
-			m.boxes[m.focus].InsertItem(m.boxes[m.focus].Index(), selected)
+			m.boxModel.Boxes[m.boxModel.Focus].RemoveItem(m.boxModel.Boxes[m.boxModel.Focus].Index())
+			m.boxModel.Boxes[m.boxModel.Focus].InsertItem(m.boxModel.Boxes[m.boxModel.Focus].Index(), selected)
 
 		case "backspace":
-			m.boxes[m.focus].RemoveItem(m.boxes[m.focus].Index())
+			m.boxModel.Boxes[m.boxModel.Focus].RemoveItem(m.boxModel.Boxes[m.boxModel.Focus].Index())
 		case "t":
 			today := time.Now().Weekday()
-			m.focus = int(today)
-			weekplanner.ActiveBox = m.boxes[m.focus].Title
+			m.boxModel.Focus = int(today)
+			weekplanner.ActiveBox = m.boxModel.Boxes[m.boxModel.Focus].Title
 		}
 
 	}
@@ -236,18 +203,18 @@ func generateBorder(title string, width int) lipgloss.Border {
 func (m model) renderRow(start, end int, style lipgloss.Style) string {
 	r := ""
 	for i := start; i < end; i++ {
-		if m.focus == i {
+		if m.boxModel.Focus == i {
 			style = style.BorderForeground(ColorBlue)
 		} else {
 			style = style.BorderForeground(ColorWhite)
 		}
 
 		// Adapt the box list model to current box dimensions
-		m.boxes[i].SetHeight(style.GetHeight())
-		m.boxes[i].SetWidth(style.GetWidth())
+		m.boxModel.Boxes[i].SetHeight(style.GetHeight())
+		m.boxModel.Boxes[i].SetWidth(style.GetWidth())
 
-		style = style.Border(generateBorder(m.boxes[i].Title, style.GetWidth()))
-		r = lipgloss.JoinHorizontal(lipgloss.Top, r, style.Render(m.boxes[i].View()))
+		style = style.Border(generateBorder(m.boxModel.Boxes[i].Title, style.GetWidth()))
+		r = lipgloss.JoinHorizontal(lipgloss.Top, r, style.Render(m.boxModel.Boxes[i].View()))
 	}
 	return r
 }
