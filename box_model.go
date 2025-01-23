@@ -1,4 +1,4 @@
-package weekplanner
+package _dayz
 
 import (
 	"fmt"

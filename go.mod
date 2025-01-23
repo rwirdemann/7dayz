@@ -1,4 +1,4 @@
-module github.com/rwirdemann/weekplanner
+module github.com/rwirdemann/7dayz
 
 go 1.23.2
 

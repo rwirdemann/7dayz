@@ -5,8 +5,8 @@ import (
 	"github.com/charmbracelet/bubbles/textinput"
 	"github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/rwirdemann/weekplanner"
-	"github.com/rwirdemann/weekplanner/file"
+	"github.com/rwirdemann/7dayz"
+	"github.com/rwirdemann/7dayz/file"
 	"os"
 	"strings"
 	"time"
@@ -23,7 +23,7 @@ var ColorWhite = lipgloss.Color("255")
 var ColorGrey = lipgloss.Color("240")
 
 type model struct {
-	boxModel   weekplanner.BoxModel
+	boxModel   _dayz.BoxModel
 	fullWidth  int
 	fullHeight int
 	textinput  textinput.Model
@@ -32,7 +32,7 @@ type model struct {
 
 func initialModel() model {
 	return model{
-		boxModel:  weekplanner.NewBoxModel(file.TaskRepository{}),
+		boxModel:  _dayz.NewBoxModel(file.TaskRepository{}),
 		textinput: textinput.New(),
 		mode:      none,
 	}
@@ -58,7 +58,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				value := m.textinput.Value()
 				if len(strings.TrimSpace(value)) > 0 {
 					if m.mode == add {
-						m.boxModel.Boxes[m.boxModel.Focus].InsertItem(0, weekplanner.Task{Name: value, Day: m.boxModel.Focus})
+						m.boxModel.Boxes[m.boxModel.Focus].InsertItem(0, _dayz.Task{Name: value, Day: m.boxModel.Focus})
 					}
 
 					if m.mode == edit {
@@ -101,7 +101,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.boxModel = m.boxModel.NextDay()
 
 			// Tell box logic which box is active to enable proper rendering of selected item
-			weekplanner.ActiveBox = m.boxModel.Boxes[m.boxModel.Focus].Title
+			_dayz.ActiveBox = m.boxModel.Boxes[m.boxModel.Focus].Title
 
 		// Move focus to prev box
 		case "shift+tab":
@@ -111,12 +111,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.boxModel.Focus--
 			}
 			// Tell box logic which box is active to enable proper rendering of selected item
-			weekplanner.ActiveBox = m.boxModel.Boxes[m.boxModel.Focus].Title
+			_dayz.ActiveBox = m.boxModel.Boxes[m.boxModel.Focus].Title
 
 		// Move item to next box
 		case "m":
 			if item := m.boxModel.Boxes[m.boxModel.Focus].SelectedItem(); item != nil && m.boxModel.Focus < 7 {
-				t := item.(weekplanner.Task)
+				t := item.(_dayz.Task)
 				m.boxModel.Boxes[m.boxModel.Focus].RemoveItem(m.boxModel.Boxes[m.boxModel.Focus].Index())
 				t.Day = m.boxModel.Focus + 1
 				m.boxModel.Boxes[m.boxModel.Focus+1].InsertItem(0, t)
@@ -125,7 +125,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Move item to next box
 		case "b":
 			if item := m.boxModel.Boxes[m.boxModel.Focus].SelectedItem(); item != nil && m.boxModel.Focus > 0 {
-				t := item.(weekplanner.Task)
+				t := item.(_dayz.Task)
 				m.boxModel.Boxes[m.boxModel.Focus].RemoveItem(m.boxModel.Boxes[m.boxModel.Focus].Index())
 				t.Day = m.boxModel.Focus - 1
 				m.boxModel.Boxes[m.boxModel.Focus-1].InsertItem(0, t)
@@ -134,7 +134,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Edit selected item in footer
 		case "enter":
 			selected := m.boxModel.Boxes[m.boxModel.Focus].SelectedItem()
-			m.textinput.SetValue(selected.(weekplanner.Task).Name)
+			m.textinput.SetValue(selected.(_dayz.Task).Name)
 			m.textinput.Focus()
 			m.mode = edit
 
@@ -145,7 +145,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		// Cross item off or on
 		case " ":
-			selected := m.boxModel.Boxes[m.boxModel.Focus].SelectedItem().(weekplanner.Task)
+			selected := m.boxModel.Boxes[m.boxModel.Focus].SelectedItem().(_dayz.Task)
 			selected.Done = !selected.Done
 			m.boxModel.Boxes[m.boxModel.Focus].RemoveItem(m.boxModel.Boxes[m.boxModel.Focus].Index())
 			m.boxModel.Boxes[m.boxModel.Focus].InsertItem(m.boxModel.Boxes[m.boxModel.Focus].Index(), selected)
@@ -155,7 +155,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "t":
 			today := time.Now().Weekday()
 			m.boxModel.Focus = int(today)
-			weekplanner.ActiveBox = m.boxModel.Boxes[m.boxModel.Focus].Title
+			_dayz.ActiveBox = m.boxModel.Boxes[m.boxModel.Focus].Title
 		}
 
 	}
