@@ -7,6 +7,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/rwirdemann/7dayz"
 	"github.com/rwirdemann/7dayz/file"
+	"log/slog"
 	"os"
 	"strings"
 	"time"
@@ -100,27 +101,13 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "tab":
 			m.boxModel = m.boxModel.NextDay()
 
-			// Tell box logic which box is active to enable proper rendering of selected item
-			_dayz.ActiveBox = m.boxModel.Boxes[m.boxModel.Focus].Title
-
 		// Move focus to prev box
 		case "shift+tab":
-			if m.boxModel.Focus == 0 {
-				m.boxModel.Focus = 7
-			} else {
-				m.boxModel.Focus--
-			}
-			// Tell box logic which box is active to enable proper rendering of selected item
-			_dayz.ActiveBox = m.boxModel.Boxes[m.boxModel.Focus].Title
+			m.boxModel = m.boxModel.PreviousDay()
 
 		// Move item to next box
 		case "m":
-			if item := m.boxModel.Boxes[m.boxModel.Focus].SelectedItem(); item != nil && m.boxModel.Focus < 7 {
-				t := item.(_dayz.Task)
-				m.boxModel.Boxes[m.boxModel.Focus].RemoveItem(m.boxModel.Boxes[m.boxModel.Focus].Index())
-				t.Day = m.boxModel.Focus + 1
-				m.boxModel.Boxes[m.boxModel.Focus+1].InsertItem(0, t)
-			}
+			m.boxModel.MoveItem(m.boxModel.Focus + 1)
 
 		// Move item to next box
 		case "b":
@@ -130,6 +117,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				t.Day = m.boxModel.Focus - 1
 				m.boxModel.Boxes[m.boxModel.Focus-1].InsertItem(0, t)
 			}
+
+		// Move task to today
+		case "ctrl+t":
+			slog.Info("ctrl+t")
+			today := time.Now().Weekday()
+			m.boxModel.MoveItem(int(today))
 
 		// Edit selected item in footer
 		case "enter":
