@@ -80,7 +80,26 @@ func (m BoxModel) NextDay() BoxModel {
 	} else {
 		m.Focus++
 	}
+	ActiveBox = m.Boxes[m.Focus].Title
 	return m
+}
+
+func (m BoxModel) PreviousDay() BoxModel {
+	if m.Focus == 0 {
+		m.Focus = 7
+	} else {
+		m.Focus--
+	}
+	ActiveBox = m.Boxes[m.Focus].Title
+	return m
+}
+func (m BoxModel) MoveItem(to int) {
+	if item := m.Boxes[m.Focus].SelectedItem(); item != nil && to < 7 {
+		t := item.(Task)
+		m.Boxes[m.Focus].RemoveItem(m.Boxes[m.Focus].Index())
+		t.Day = to
+		m.Boxes[to].InsertItem(0, t)
+	}
 }
 
 type itemDelegate struct {
