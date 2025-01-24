@@ -28,6 +28,7 @@ type model struct {
 	fullHeight int
 	textinput  textinput.Model
 	mode       int
+	showHelp   bool
 }
 
 func initialModel() model {
@@ -148,6 +149,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			today := time.Now().Weekday()
 			m.boxModel.Focus = int(today)
 			_dayz.ActiveTab = m.boxModel.Tabs[m.boxModel.Focus].Title
+		case "?":
+			m.showHelp = !m.showHelp
 		}
 
 	}
@@ -186,23 +189,36 @@ func (m model) View() string {
 	style := lipgloss.NewStyle().Width(w).Height(h)
 	row1 := m.renderRow(0, 4, style, wDelta, hDelta)
 
-	// Reduce height of second row to fit textinput underneath
-	style = style.Height(h - 2)
+	// Reduce height of second row to fit textinput or help underneath
+	gap := 0
+	if m.showHelp {
+		gap = 4
+	}
+
+	if m.mode != none {
+		gap = 2
+	}
+	style = style.Height(h - gap)
 	row2 := m.renderRow(4, 8, style, wDelta, hDelta)
 
-	var footer string
-	switch m.mode {
-	case add, edit:
-		footer = " " + m.textinput.View()
-	case none:
-		footer = m.helpView()
+	if m.mode != none {
+		footer := " " + m.textinput.View()
+		return lipgloss.JoinVertical(lipgloss.Top, row1, row2, footer)
 	}
-	return lipgloss.JoinVertical(lipgloss.Top, row1, row2, footer)
+
+	if m.showHelp {
+		footer := " " + m.helpView()
+		return lipgloss.JoinVertical(lipgloss.Top, row1, row2, footer)
+	}
+
+	return lipgloss.JoinVertical(lipgloss.Top, row1, row2)
 }
 
 func (m model) helpView() string {
 	helpStyle := lipgloss.NewStyle().Foreground(ColorGrey)
-	return helpStyle.Render(" tab: next day • shift+tab: prev day • enter: edit task • n: new task • t: today • shift+t: move selected task to today")
+	return helpStyle.Render("tab: next day • shift+tab: prev day • enter: edit task • n: new task\n" +
+		" shift+right: move task right • shift+left: move task left • shift+t: move task to today • shift+i: move task to inbox\n" +
+		" t: jump to today • i: jump to inbox\n")
 }
 
 func generateBorder(title string, width int) lipgloss.Border {
