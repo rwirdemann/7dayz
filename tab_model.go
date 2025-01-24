@@ -175,7 +175,18 @@ func (d itemDelegate) Render(w io.Writer, m list.Model, index int, listItem list
 		}
 	}
 
+	width := m.Width() - 6
+
+	// Some extra space for the done mark
+	if task.Done {
+		width -= 2
+	}
+
 	name := task.Name
+	if len(name) > width {
+		name = name[:width] + "..."
+	}
+
 	if task.Done {
 		name = fmt.Sprintf("X %s", name)
 	}
