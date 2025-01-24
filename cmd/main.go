@@ -7,7 +7,6 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/rwirdemann/7dayz"
 	"github.com/rwirdemann/7dayz/file"
-	"log/slog"
 	"os"
 	"strings"
 	"time"
@@ -24,7 +23,7 @@ var ColorWhite = lipgloss.Color("255")
 var ColorGrey = lipgloss.Color("240")
 
 type model struct {
-	boxModel   _dayz.BoxModel
+	boxModel   _dayz.TabModel
 	fullWidth  int
 	fullHeight int
 	textinput  textinput.Model
@@ -33,7 +32,7 @@ type model struct {
 
 func initialModel() model {
 	return model{
-		boxModel:  _dayz.NewBoxModel(file.TaskRepository{}),
+		boxModel:  _dayz.NewTabModel(file.TaskRepository{}),
 		textinput: textinput.New(),
 		mode:      none,
 	}
@@ -59,7 +58,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				value := m.textinput.Value()
 				if len(strings.TrimSpace(value)) > 0 {
 					if m.mode == add {
-						m.boxModel.Boxes[m.boxModel.Focus].InsertItem(0, _dayz.Task{Name: value, Day: m.boxModel.Focus})
+						m.boxModel.Tabs[m.boxModel.Focus].InsertItem(0, _dayz.Task{Name: value, Day: m.boxModel.Focus})
 					}
 
 					if m.mode == edit {
@@ -80,7 +79,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
 	// Update active box
-	m.boxModel.Boxes[m.boxModel.Focus], cmd = m.boxModel.Boxes[m.boxModel.Focus].Update(msg)
+	m.boxModel.Tabs[m.boxModel.Focus], cmd = m.boxModel.Tabs[m.boxModel.Focus].Update(msg)
 	cmds = append(cmds, cmd)
 
 	// Handle global key strokes
@@ -99,34 +98,31 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		// Move focus to next box
 		case "tab":
-			m.boxModel = m.boxModel.NextDay()
+			m.boxModel = m.boxModel.NextTab()
 
 		// Move focus to prev box
 		case "shift+tab":
-			m.boxModel = m.boxModel.PreviousDay()
+			m.boxModel = m.boxModel.PreviousTab()
+
+		case "i":
+			m.boxModel = m.boxModel.SelectTab(0)
 
 		// Move item to next box
 		case "m":
 			m.boxModel.MoveItem(m.boxModel.Focus + 1)
 
-		// Move item to next box
+		// Move item to prev box
 		case "b":
-			if item := m.boxModel.Boxes[m.boxModel.Focus].SelectedItem(); item != nil && m.boxModel.Focus > 0 {
-				t := item.(_dayz.Task)
-				m.boxModel.Boxes[m.boxModel.Focus].RemoveItem(m.boxModel.Boxes[m.boxModel.Focus].Index())
-				t.Day = m.boxModel.Focus - 1
-				m.boxModel.Boxes[m.boxModel.Focus-1].InsertItem(0, t)
-			}
+			m.boxModel.MoveItem(m.boxModel.Focus - 1)
 
 		// Move task to today
 		case "ctrl+t":
-			slog.Info("ctrl+t")
 			today := time.Now().Weekday()
 			m.boxModel.MoveItem(int(today))
 
 		// Edit selected item in footer
 		case "enter":
-			selected := m.boxModel.Boxes[m.boxModel.Focus].SelectedItem()
+			selected := m.boxModel.Tabs[m.boxModel.Focus].SelectedItem()
 			m.textinput.SetValue(selected.(_dayz.Task).Name)
 			m.textinput.Focus()
 			m.mode = edit
@@ -138,17 +134,17 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		// Cross item off or on
 		case " ":
-			selected := m.boxModel.Boxes[m.boxModel.Focus].SelectedItem().(_dayz.Task)
+			selected := m.boxModel.Tabs[m.boxModel.Focus].SelectedItem().(_dayz.Task)
 			selected.Done = !selected.Done
-			m.boxModel.Boxes[m.boxModel.Focus].RemoveItem(m.boxModel.Boxes[m.boxModel.Focus].Index())
-			m.boxModel.Boxes[m.boxModel.Focus].InsertItem(m.boxModel.Boxes[m.boxModel.Focus].Index(), selected)
+			m.boxModel.Tabs[m.boxModel.Focus].RemoveItem(m.boxModel.Tabs[m.boxModel.Focus].Index())
+			m.boxModel.Tabs[m.boxModel.Focus].InsertItem(m.boxModel.Tabs[m.boxModel.Focus].Index(), selected)
 
 		case "backspace":
-			m.boxModel.Boxes[m.boxModel.Focus].RemoveItem(m.boxModel.Boxes[m.boxModel.Focus].Index())
+			m.boxModel.Tabs[m.boxModel.Focus].RemoveItem(m.boxModel.Tabs[m.boxModel.Focus].Index())
 		case "t":
 			today := time.Now().Weekday()
 			m.boxModel.Focus = int(today)
-			_dayz.ActiveBox = m.boxModel.Boxes[m.boxModel.Focus].Title
+			_dayz.ActiveTab = m.boxModel.Tabs[m.boxModel.Focus].Title
 		}
 
 	}
@@ -203,7 +199,7 @@ func (m model) View() string {
 
 func (m model) helpView() string {
 	helpStyle := lipgloss.NewStyle().Foreground(ColorGrey)
-	return helpStyle.Render(" tab: next day • shift+tab: prev day • enter: edit task • n: new task • t: today")
+	return helpStyle.Render(" tab: next day • shift+tab: prev day • enter: edit task • n: new task • t: today • shift+t: move selected task to today")
 }
 
 func generateBorder(title string, width int) lipgloss.Border {
@@ -233,11 +229,11 @@ func (m model) renderRow(start, end int, style lipgloss.Style, wDelta int, hDelt
 		}
 
 		// Adapt the box list model to current box dimensions
-		m.boxModel.Boxes[i].SetHeight(style.GetHeight())
-		m.boxModel.Boxes[i].SetWidth(style.GetWidth())
+		m.boxModel.Tabs[i].SetHeight(style.GetHeight())
+		m.boxModel.Tabs[i].SetWidth(style.GetWidth())
 
-		style = style.Border(generateBorder(m.boxModel.Boxes[i].Title, style.GetWidth()))
-		r = lipgloss.JoinHorizontal(lipgloss.Top, r, style.Render(m.boxModel.Boxes[i].View()))
+		style = style.Border(generateBorder(m.boxModel.Tabs[i].Title, style.GetWidth()))
+		r = lipgloss.JoinHorizontal(lipgloss.Top, r, style.Render(m.boxModel.Tabs[i].View()))
 	}
 	return r
 }

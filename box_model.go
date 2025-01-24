@@ -10,15 +10,15 @@ import (
 	"strings"
 )
 
-// ActiveBox represents the currently active box, identified by its title. The selection pointer is only rendered for
+// ActiveTab represents the currently active box, identified by its title. The selection pointer is only rendered for
 // the currently active box.
-var ActiveBox = "Inbox"
+var ActiveTab = "Inbox"
 
-type Box struct {
+type Tab struct {
 	list.Model
 }
 
-func NewBox(title string, items []list.Item) Box {
+func NewTab(title string, items []list.Item) Tab {
 	l := list.New(items, itemDelegate{boxTitle: title}, 0, 0)
 	l.Title = title
 	l.SetShowTitle(false)
@@ -26,40 +26,40 @@ func NewBox(title string, items []list.Item) Box {
 	l.SetFilteringEnabled(false)
 	l.SetShowHelp(false)
 	l.Styles.PaginationStyle = list.DefaultStyles().PaginationStyle.PaddingLeft(2)
-	return Box{Model: l}
+	return Tab{Model: l}
 }
 
-func (b Box) Update(msg tea.Msg) (Box, tea.Cmd) {
+func (b Tab) Update(msg tea.Msg) (Tab, tea.Cmd) {
 	var cmd tea.Cmd
 	b.Model, cmd = b.Model.Update(msg)
 	return b, cmd
 }
 
-type BoxModel struct {
-	Boxes      []Box
+type TabModel struct {
+	Tabs       []Tab
 	repository TaskRepository
 	Focus      int
 }
 
-func NewBoxModel(repository TaskRepository) BoxModel {
+func NewTabModel(repository TaskRepository) TabModel {
 	var tasksByDay = make(map[int][]list.Item)
 	tasks := repository.Load()
 	for _, task := range tasks {
 		tasksByDay[task.Day] = append(tasksByDay[task.Day], task)
 	}
 
-	m := BoxModel{repository: repository, Focus: 0}
+	m := TabModel{repository: repository, Focus: 0}
 	titles := []string{"Inbox", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"}
 	for i, t := range titles {
-		b := NewBox(t, tasksByDay[i])
-		m.Boxes = append(m.Boxes, b)
+		b := NewTab(t, tasksByDay[i])
+		m.Tabs = append(m.Tabs, b)
 	}
 	return m
 }
 
-func (m BoxModel) Save() {
+func (m TabModel) Save() {
 	var tasks []Task
-	for _, box := range m.Boxes {
+	for _, box := range m.Tabs {
 		for _, item := range box.Items() {
 			tasks = append(tasks, item.(Task))
 		}
@@ -67,39 +67,45 @@ func (m BoxModel) Save() {
 	m.repository.Save(tasks)
 }
 
-func (m BoxModel) Update(s string, box int) {
-	task := m.Boxes[box].SelectedItem().(Task)
+func (m TabModel) Update(s string, box int) {
+	task := m.Tabs[box].SelectedItem().(Task)
 	task.Name = s
-	m.Boxes[box].RemoveItem(m.Boxes[box].Index())
-	m.Boxes[box].InsertItem(m.Boxes[box].Index(), task)
+	m.Tabs[box].RemoveItem(m.Tabs[box].Index())
+	m.Tabs[box].InsertItem(m.Tabs[box].Index(), task)
 }
 
-func (m BoxModel) NextDay() BoxModel {
+func (m TabModel) NextTab() TabModel {
 	if m.Focus == 7 {
 		m.Focus = 0
 	} else {
 		m.Focus++
 	}
-	ActiveBox = m.Boxes[m.Focus].Title
+	ActiveTab = m.Tabs[m.Focus].Title
 	return m
 }
 
-func (m BoxModel) PreviousDay() BoxModel {
+func (m TabModel) PreviousTab() TabModel {
 	if m.Focus == 0 {
 		m.Focus = 7
 	} else {
 		m.Focus--
 	}
-	ActiveBox = m.Boxes[m.Focus].Title
+	ActiveTab = m.Tabs[m.Focus].Title
 	return m
 }
-func (m BoxModel) MoveItem(to int) {
-	if item := m.Boxes[m.Focus].SelectedItem(); item != nil && to < 7 {
+func (m TabModel) MoveItem(to int) {
+	if item := m.Tabs[m.Focus].SelectedItem(); item != nil && to < 7 && to >= 0 {
 		t := item.(Task)
-		m.Boxes[m.Focus].RemoveItem(m.Boxes[m.Focus].Index())
+		m.Tabs[m.Focus].RemoveItem(m.Tabs[m.Focus].Index())
 		t.Day = to
-		m.Boxes[to].InsertItem(0, t)
+		m.Tabs[to].InsertItem(0, t)
 	}
+}
+
+func (m TabModel) SelectTab(i int) TabModel {
+	m.Focus = i
+	ActiveTab = m.Tabs[i].Title
+	return m
 }
 
 type itemDelegate struct {
@@ -127,7 +133,7 @@ func (d itemDelegate) Render(w io.Writer, m list.Model, index int, listItem list
 	fn := lipgloss.NewStyle().Strikethrough(task.Done).PaddingLeft(2).Render
 
 	// Render selection pointer only for the currently active box.
-	if ActiveBox == d.boxTitle && index == m.Index() {
+	if ActiveTab == d.boxTitle && index == m.Index() {
 		fn = func(s ...string) string {
 			return lipgloss.NewStyle().Strikethrough(task.Done).PaddingLeft(0).Foreground(lipgloss.Color("170")).Render("> " + strings.Join(s, " "))
 		}
