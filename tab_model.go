@@ -7,6 +7,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"io"
 	"log/slog"
+	"sort"
 	"strings"
 )
 
@@ -32,6 +33,32 @@ func NewTab(title string, items []list.Item) Tab {
 func (b Tab) Update(msg tea.Msg) (Tab, tea.Cmd) {
 	var cmd tea.Cmd
 	b.Model, cmd = b.Model.Update(msg)
+
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		switch msg.String() {
+		case "shift+up":
+			selected := b.SelectedItem()
+			if selected != nil {
+				t := selected.(Task)
+				if b.Index() > 0 {
+					b.RemoveItem(b.Index())
+					b.InsertItem(b.Index()-1, t)
+					b.Select(b.Index() - 1)
+				}
+			}
+		case "shift+down":
+			selected := b.SelectedItem()
+			if selected != nil {
+				t := selected.(Task)
+				if b.Index() < len(b.Items())-1 {
+					b.RemoveItem(b.Index())
+					b.InsertItem(b.Index()+1, t)
+					b.Select(b.Index() + 1)
+				}
+			}
+		}
+	}
 	return b, cmd
 }
 
@@ -48,6 +75,13 @@ func NewTabModel(repository TaskRepository) TabModel {
 		tasksByDay[task.Day] = append(tasksByDay[task.Day], task)
 	}
 
+	// Sort tasks by their Pos field
+	for _, items := range tasksByDay {
+		sort.Slice(items, func(i, j int) bool {
+			return items[i].(Task).Pos < items[j].(Task).Pos
+		})
+	}
+
 	m := TabModel{repository: repository, Focus: 0}
 	titles := []string{"Inbox", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"}
 	for i, t := range titles {
@@ -60,8 +94,10 @@ func NewTabModel(repository TaskRepository) TabModel {
 func (m TabModel) Save() {
 	var tasks []Task
 	for _, box := range m.Tabs {
-		for _, item := range box.Items() {
-			tasks = append(tasks, item.(Task))
+		for i, item := range box.Items() {
+			t := item.(Task)
+			t.Pos = i
+			tasks = append(tasks, t)
 		}
 	}
 	m.repository.Save(tasks)

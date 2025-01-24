@@ -15,6 +15,7 @@ type Task struct {
 	Name string `json:"name"`
 	Day  int    `json:"day"`
 	Done bool   `json:"done"`
+	Pos  int    `json:"pos"`
 }
 
 func (t Task) FilterValue() string {

@@ -108,11 +108,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.boxModel = m.boxModel.SelectTab(0)
 
 		// Move item to next box
-		case "m":
+		case "shift+right":
 			m.boxModel.MoveItem(m.boxModel.Focus + 1)
 
-		// Move item to prev box
-		case "b":
+			// Move item to prev box
+		case "shift+left":
 			m.boxModel.MoveItem(m.boxModel.Focus - 1)
 
 		// Move task to today
@@ -199,7 +199,7 @@ func (m model) View() string {
 
 func (m model) helpView() string {
 	helpStyle := lipgloss.NewStyle().Foreground(ColorGrey)
-	return helpStyle.Render(" tab: next day • shift+tab: prev day • enter: edit task • n: new task • t: today • shift+t: move selected task to today")
+	return helpStyle.Render(" tab: next day • shift+tab: prev day • enter: edit task • n: new task • t: today • ctrl+t: move selected task to today")
 }
 
 func generateBorder(title string, width int) lipgloss.Border {
