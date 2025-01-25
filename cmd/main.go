@@ -20,7 +20,11 @@ const (
 
 var ColorBlue = lipgloss.Color("12")
 var ColorWhite = lipgloss.Color("255")
-var ColorGrey = lipgloss.Color("240")
+var ColorGrey = lipgloss.Color("248")
+var ColorGreen = lipgloss.Color("28")
+
+var helpBlockStyle = lipgloss.NewStyle().Foreground(ColorGrey)
+var helpHeaderStyle = lipgloss.NewStyle().Foreground(ColorGreen)
 
 type model struct {
 	boxModel   _dayz.TabModel
@@ -36,6 +40,7 @@ func initialModel() model {
 		boxModel:  _dayz.NewTabModel(file.TaskRepository{}),
 		textinput: textinput.New(),
 		mode:      none,
+		showHelp:  true,
 	}
 }
 
@@ -130,11 +135,13 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.textinput.SetValue(selected.(_dayz.Task).Name)
 			m.textinput.Focus()
 			m.mode = edit
+			m.showHelp = false
 
 		// Add new item
 		case "n":
 			m.textinput.Focus()
 			m.mode = add
+			m.showHelp = false
 
 		// Cross item off or on
 		case " ":
@@ -192,7 +199,7 @@ func (m model) View() string {
 	// Reduce height of second row to fit textinput or help underneath
 	gap := 0
 	if m.showHelp {
-		gap = 4
+		gap = 6
 	}
 
 	if m.mode != none {
@@ -214,11 +221,54 @@ func (m model) View() string {
 	return lipgloss.JoinVertical(lipgloss.Top, row1, row2)
 }
 
+type key struct {
+	k    string
+	desc string
+}
+
 func (m model) helpView() string {
-	helpStyle := lipgloss.NewStyle().Foreground(ColorGrey)
-	return helpStyle.Render("tab: next day • shift+tab: prev day • enter: edit task • n: new task\n" +
-		" shift+right: move task right • shift+left: move task left • shift+t: move task to today • shift+i: move task to inbox\n" +
-		" t: jump to today • i: jump to inbox\n")
+	general := []key{
+		{"tab", "focus next day"},
+		{"shift+tab", "focus prev day"},
+		{"t", "focus today"},
+		{"i", "focus inbox"},
+
+		{"?", "toggle help"},
+	}
+
+	management := []key{
+		{"backspace", "delete task"},
+		{"space", "complete task"},
+		{"enter", "edit task"},
+		{"n", "new task"},
+	}
+
+	movement := []key{
+		{"shift+right", "move task right"},
+		{"shift+left", "move task left"},
+		{"shift+t", "move task to today"},
+		{"shift+i", "move task to inbox"},
+	}
+
+	sorting := []key{
+		{"shift+up", "move task up"},
+		{"shift+down", "move task down"},
+	}
+
+	return lipgloss.JoinHorizontal(0,
+		m.helpBlock("General", 11, 16, general), "  ",
+		m.helpBlock("Task Editing", 11, 15, management), "  ",
+		m.helpBlock("Task Movement", 13, 20, movement), "  ",
+		m.helpBlock("Sorting", 12, 20, sorting))
+}
+
+func (m model) helpBlock(title string, padding int, space int, keys []key) string {
+	block := helpHeaderStyle.Render(title)
+	for _, k := range keys {
+		block = lipgloss.JoinVertical(0, block, helpBlockStyle.Render(fmt.Sprintf("%*s%*s", padding, k.k+" ", space, k.desc)))
+	}
+
+	return block
 }
 
 func generateBorder(title string, width int) lipgloss.Border {
