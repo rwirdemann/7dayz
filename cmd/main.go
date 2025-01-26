@@ -36,8 +36,10 @@ type model struct {
 }
 
 func initialModel() model {
+	tabModel := _dayz.NewTabModel(file.TaskRepository{})
+	tabModel.Load()
 	return model{
-		boxModel:  _dayz.NewTabModel(file.TaskRepository{}),
+		boxModel:  tabModel,
 		textinput: textinput.New(),
 		mode:      none,
 		showHelp:  true,
@@ -64,11 +66,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				value := m.textinput.Value()
 				if len(strings.TrimSpace(value)) > 0 {
 					if m.mode == add {
-						m.boxModel.Tabs[m.boxModel.Focus].InsertItem(0, _dayz.Task{Name: value, Day: m.boxModel.Focus})
+						m.boxModel.Add(value)
 					}
 
 					if m.mode == edit {
-						m.boxModel.Update(value, m.boxModel.Focus)
+						m.boxModel.Update(value)
 					}
 				}
 
@@ -88,7 +90,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	m.boxModel.Tabs[m.boxModel.Focus], cmd = m.boxModel.Tabs[m.boxModel.Focus].Update(msg)
 	cmds = append(cmds, cmd)
 
-	// Handle global key strokes
+	// Handle global Shortcut strokes
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.fullHeight = msg.Height
@@ -103,7 +105,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Quit
 
 		// Move focus to next box
-		case "tab":
+		case _dayz.KeyNextPanel:
 			m.boxModel = m.boxModel.NextTab()
 
 		// Move focus to prev box
@@ -158,8 +160,31 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			_dayz.ActiveTab = m.boxModel.Tabs[m.boxModel.Focus].Title
 		case "?":
 			m.showHelp = !m.showHelp
+		case "alt+0":
+			m.boxModel.Focus = 0
+			_dayz.ActiveTab = m.boxModel.Tabs[m.boxModel.Focus].Title
+		case "alt+1":
+			m.boxModel.Focus = 1
+			_dayz.ActiveTab = m.boxModel.Tabs[m.boxModel.Focus].Title
+		case "alt+2":
+			m.boxModel.Focus = 2
+			_dayz.ActiveTab = m.boxModel.Tabs[m.boxModel.Focus].Title
+		case "alt+3":
+			m.boxModel.Focus = 3
+			_dayz.ActiveTab = m.boxModel.Tabs[m.boxModel.Focus].Title
+		case "alt+4":
+			m.boxModel.Focus = 4
+			_dayz.ActiveTab = m.boxModel.Tabs[m.boxModel.Focus].Title
+		case "alt+5":
+			m.boxModel.Focus = 5
+			_dayz.ActiveTab = m.boxModel.Tabs[m.boxModel.Focus].Title
+		case "alt+6":
+			m.boxModel.Focus = 6
+			_dayz.ActiveTab = m.boxModel.Tabs[m.boxModel.Focus].Title
+		case "alt+7":
+			m.boxModel.Focus = 7
+			_dayz.ActiveTab = m.boxModel.Tabs[m.boxModel.Focus].Title
 		}
-
 	}
 	return m, tea.Batch(cmds...)
 }
@@ -221,51 +246,18 @@ func (m model) View() string {
 	return lipgloss.JoinVertical(lipgloss.Top, row1, row2)
 }
 
-type key struct {
-	k    string
-	desc string
-}
-
 func (m model) helpView() string {
-	general := []key{
-		{"tab", "focus next day"},
-		{"shift+tab", "focus prev day"},
-		{"t", "focus today"},
-		{"i", "focus inbox"},
-
-		{"?", "toggle help"},
-	}
-
-	management := []key{
-		{"backspace", "delete task"},
-		{"space", "complete task"},
-		{"enter", "edit task"},
-		{"n", "new task"},
-	}
-
-	movement := []key{
-		{"shift+right", "move task right"},
-		{"shift+left", "move task left"},
-		{"shift+t", "move task to today"},
-		{"shift+i", "move task to inbox"},
-	}
-
-	sorting := []key{
-		{"shift+up", "move task up"},
-		{"shift+down", "move task down"},
-	}
-
 	return lipgloss.JoinHorizontal(0,
-		m.helpBlock("General", 11, 16, general), "  ",
-		m.helpBlock("Task Editing", 11, 15, management), "  ",
-		m.helpBlock("Task Movement", 13, 20, movement), "  ",
-		m.helpBlock("Sorting", 12, 20, sorting))
+		m.helpBlock("Panels", 11, 16, _dayz.General), "  ",
+		m.helpBlock("Task Editing", 11, 15, _dayz.Management), "  ",
+		m.helpBlock("Task Movement", 13, 20, _dayz.Movement), "  ",
+		m.helpBlock("Sorting", 12, 20, _dayz.Sorting))
 }
 
-func (m model) helpBlock(title string, padding int, space int, keys []key) string {
+func (m model) helpBlock(title string, padding int, space int, keys []_dayz.Shortcut) string {
 	block := helpHeaderStyle.Render(title)
 	for _, k := range keys {
-		block = lipgloss.JoinVertical(0, block, helpBlockStyle.Render(fmt.Sprintf("%*s%*s", padding, k.k+" ", space, k.desc)))
+		block = lipgloss.JoinVertical(0, block, helpBlockStyle.Render(fmt.Sprintf("%*s%*s", padding, k.Key+" ", space, k.Desc)))
 	}
 
 	return block
@@ -301,7 +293,10 @@ func (m model) renderRow(start, end int, style lipgloss.Style, wDelta int, hDelt
 		m.boxModel.Tabs[i].SetHeight(style.GetHeight())
 		m.boxModel.Tabs[i].SetWidth(style.GetWidth())
 
-		style = style.Border(generateBorder(m.boxModel.Tabs[i].Title, style.GetWidth()))
+		_, w := time.Now().ISOWeek()
+		title := fmt.Sprintf("%s (Week %d)", m.boxModel.Tabs[i].Title, w)
+
+		style = style.Border(generateBorder(title, style.GetWidth()))
 		r = lipgloss.JoinHorizontal(lipgloss.Top, r, style.Render(m.boxModel.Tabs[i].View()))
 	}
 	return r
