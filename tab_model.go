@@ -16,9 +16,19 @@ var ActiveTab = 0
 
 type Tab struct {
 	list.Model
+	number int
+	Week   int
+	Date   time.Time
 }
 
-func NewTab(title string, number int) Tab {
+func (b Tab) TitleString() string {
+	if b.number == 0 {
+		return fmt.Sprintf("Inbox (Week %d)", b.Week)
+	}
+	return fmt.Sprintf("%s (%s)", b.Title, b.Date.Format("02.01.2006"))
+}
+
+func NewTab(title string, number int, week int) Tab {
 	l := list.New(nil, itemDelegate{panel: number}, 0, 0)
 	l.Title = title
 	l.SetShowTitle(false)
@@ -26,7 +36,7 @@ func NewTab(title string, number int) Tab {
 	l.SetFilteringEnabled(false)
 	l.SetShowHelp(false)
 	l.Styles.PaginationStyle = list.DefaultStyles().PaginationStyle.PaddingLeft(2)
-	return Tab{Model: l}
+	return Tab{Model: l, number: number, Week: week}
 }
 
 func (b Tab) Update(msg tea.Msg) (Tab, tea.Cmd) {
@@ -71,8 +81,13 @@ type TabModel struct {
 func NewTabModel(repository TaskRepository, week int) TabModel {
 	m := TabModel{repository: repository, Focus: 0, Week: week}
 	titles := []string{"Inbox", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"}
+	weekday := getMondayOfWeek(week)
 	for i, t := range titles {
-		tab := NewTab(t, i)
+		tab := NewTab(t, i, week)
+		if i > 0 {
+			tab.Date = weekday
+			weekday = weekday.AddDate(0, 0, 1)
+		}
 		m.Tabs = append(m.Tabs, tab)
 	}
 	return m
@@ -99,54 +114,34 @@ func getMondayOfWeek(week int) time.Time {
 }
 
 func (m TabModel) NextWeek() TabModel {
-	m.Week += 1
-	weekday := getMondayOfWeek(m.Week)
-	for i := range m.Tabs {
-		if strings.HasPrefix(m.Tabs[i].Title, "Inbox") {
-			m.Tabs[i].Title = fmt.Sprintf("Inbox (Week %d)", m.Week)
-		} else {
-			title := strings.Split(m.Tabs[i].Title, " ")[0]
-
-			m.Tabs[i].Title = fmt.Sprintf("%s (%s)", title, weekday.Format("02.01.2006"))
-			weekday = weekday.AddDate(0, 0, 1)
-		}
+	if m.Week == 52 {
+		return m
 	}
-	return m
+	return m.updateDates(1)
 }
 
 func (m TabModel) PrevWeek() TabModel {
-	if m.Week > 1 {
-		m.Week -= 1
-	} else {
+	if m.Week == 1 {
 		return m
 	}
+	return m.updateDates(-1)
+}
+
+func (m TabModel) updateDates(delta int) TabModel {
+	m.Week += delta
 	weekday := getMondayOfWeek(m.Week)
 	for i := range m.Tabs {
-		if strings.HasPrefix(m.Tabs[i].Title, "Inbox") {
-			m.Tabs[i].Title = fmt.Sprintf("Inbox (Week %d)", m.Week)
-		} else {
-			title := strings.Split(m.Tabs[i].Title, " ")[0]
-
-			m.Tabs[i].Title = fmt.Sprintf("%s (%s)", title, weekday.Format("02.01.2006"))
-			weekday = weekday.AddDate(0, 0, 1)
+		m.Tabs[i].Week = m.Week
+		if i == 0 {
+			continue
 		}
+		m.Tabs[i].Date = weekday
+		weekday = weekday.AddDate(0, 0, 1)
 	}
 	return m
 }
 
 func (m TabModel) Load(week int) {
-	weekday := getMondayOfWeek(week)
-	for i := range m.Tabs {
-		if strings.HasPrefix(m.Tabs[i].Title, "Inbox") {
-			m.Tabs[i].Title = fmt.Sprintf("Inbox (Week %d)", week)
-		} else {
-			title := strings.Split(m.Tabs[i].Title, " ")[0]
-
-			m.Tabs[i].Title = fmt.Sprintf("%s (%s)", title, weekday.Format("02.01.2006"))
-			weekday = weekday.AddDate(0, 0, 1)
-		}
-	}
-
 	var tasksByDay = make(map[int][]list.Item)
 	tasks := m.repository.Load()
 	for _, task := range tasks {
