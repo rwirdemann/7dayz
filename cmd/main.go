@@ -5,6 +5,7 @@ import (
 	"github.com/charmbracelet/bubbles/textinput"
 	"github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/muesli/termenv"
 	"github.com/rwirdemann/7dayz"
 	"github.com/rwirdemann/7dayz/file"
 	"os"
@@ -18,13 +19,31 @@ const (
 	add
 )
 
-var ColorBlue = lipgloss.Color("12")
-var ColorWhite = lipgloss.Color("255")
-var ColorGrey = lipgloss.Color("248")
-var ColorGreen = lipgloss.Color("28")
+var PanelBorderColorFocus lipgloss.Color
+var PanelBorderColor lipgloss.Color
+var HelpBlockColor lipgloss.Color
+var HelpHeaderColor lipgloss.Color
 
-var helpBlockStyle = lipgloss.NewStyle().Foreground(ColorGrey)
-var helpHeaderStyle = lipgloss.NewStyle().Foreground(ColorGreen)
+var helpBlockStyle lipgloss.Style
+var helpHeaderStyle lipgloss.Style
+
+func init() {
+	isDark := termenv.HasDarkBackground()
+	if isDark {
+		PanelBorderColorFocus = "12"
+		PanelBorderColor = "255"
+		HelpBlockColor = "248"
+		HelpHeaderColor = "28"
+	} else {
+		PanelBorderColorFocus = "12"
+		PanelBorderColor = "0"
+		HelpBlockColor = "240"
+		HelpHeaderColor = "34" // dark green
+	}
+
+	helpBlockStyle = lipgloss.NewStyle().Foreground(HelpBlockColor)
+	helpHeaderStyle = lipgloss.NewStyle().Foreground(HelpHeaderColor)
+}
 
 type model struct {
 	boxModel   _dayz.TabModel
@@ -282,9 +301,9 @@ func (m model) renderRow(start, end int, style lipgloss.Style, wDelta int, hDelt
 	r := ""
 	for i := start; i < end; i++ {
 		if m.boxModel.Focus == i {
-			style = style.BorderForeground(ColorBlue)
+			style = style.BorderForeground(PanelBorderColorFocus)
 		} else {
-			style = style.BorderForeground(ColorWhite)
+			style = style.BorderForeground(PanelBorderColor)
 		}
 
 		if i == 3 || i == 7 {
@@ -299,7 +318,7 @@ func (m model) renderRow(start, end int, style lipgloss.Style, wDelta int, hDelt
 		m.boxModel.Tabs[i].SetHeight(style.GetHeight())
 		m.boxModel.Tabs[i].SetWidth(style.GetWidth())
 
-		style = style.Border(generateBorder(m.boxModel.Tabs[i].Title, style.GetWidth()))
+		style = style.Border(generateBorder(m.boxModel.Tabs[i].TitleString(), style.GetWidth()))
 		r = lipgloss.JoinHorizontal(lipgloss.Top, r, style.Render(m.boxModel.Tabs[i].View()))
 	}
 	return r
