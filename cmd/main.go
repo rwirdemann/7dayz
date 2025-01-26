@@ -36,8 +36,9 @@ type model struct {
 }
 
 func initialModel() model {
-	tabModel := _dayz.NewTabModel(file.TaskRepository{})
-	tabModel.Load()
+	_, w := time.Now().ISOWeek()
+	tabModel := _dayz.NewTabModel(file.TaskRepository{}, w)
+	tabModel.Load(w)
 	return model{
 		boxModel:  tabModel,
 		textinput: textinput.New(),
@@ -157,34 +158,39 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "t":
 			today := time.Now().Weekday()
 			m.boxModel.Focus = int(today)
-			_dayz.ActiveTab = m.boxModel.Tabs[m.boxModel.Focus].Title
+			_dayz.ActiveTab = m.boxModel.Focus
 		case "?":
 			m.showHelp = !m.showHelp
 		case "alt+0":
 			m.boxModel.Focus = 0
-			_dayz.ActiveTab = m.boxModel.Tabs[m.boxModel.Focus].Title
+			_dayz.ActiveTab = m.boxModel.Focus
 		case "alt+1":
 			m.boxModel.Focus = 1
-			_dayz.ActiveTab = m.boxModel.Tabs[m.boxModel.Focus].Title
+			_dayz.ActiveTab = m.boxModel.Focus
 		case "alt+2":
 			m.boxModel.Focus = 2
-			_dayz.ActiveTab = m.boxModel.Tabs[m.boxModel.Focus].Title
+			_dayz.ActiveTab = m.boxModel.Focus
 		case "alt+3":
 			m.boxModel.Focus = 3
-			_dayz.ActiveTab = m.boxModel.Tabs[m.boxModel.Focus].Title
+			_dayz.ActiveTab = m.boxModel.Focus
 		case "alt+4":
 			m.boxModel.Focus = 4
-			_dayz.ActiveTab = m.boxModel.Tabs[m.boxModel.Focus].Title
+			_dayz.ActiveTab = m.boxModel.Focus
 		case "alt+5":
 			m.boxModel.Focus = 5
-			_dayz.ActiveTab = m.boxModel.Tabs[m.boxModel.Focus].Title
+			_dayz.ActiveTab = m.boxModel.Focus
 		case "alt+6":
 			m.boxModel.Focus = 6
-			_dayz.ActiveTab = m.boxModel.Tabs[m.boxModel.Focus].Title
+			_dayz.ActiveTab = m.boxModel.Focus
 		case "alt+7":
 			m.boxModel.Focus = 7
-			_dayz.ActiveTab = m.boxModel.Tabs[m.boxModel.Focus].Title
+			_dayz.ActiveTab = m.boxModel.Focus
+		case "right":
+			m.boxModel = m.boxModel.NextWeek()
+		case "left":
+			m.boxModel = m.boxModel.PrevWeek()
 		}
+
 	}
 	return m, tea.Batch(cmds...)
 }
@@ -293,10 +299,7 @@ func (m model) renderRow(start, end int, style lipgloss.Style, wDelta int, hDelt
 		m.boxModel.Tabs[i].SetHeight(style.GetHeight())
 		m.boxModel.Tabs[i].SetWidth(style.GetWidth())
 
-		_, w := time.Now().ISOWeek()
-		title := fmt.Sprintf("%s (Week %d)", m.boxModel.Tabs[i].Title, w)
-
-		style = style.Border(generateBorder(title, style.GetWidth()))
+		style = style.Border(generateBorder(m.boxModel.Tabs[i].Title, style.GetWidth()))
 		r = lipgloss.JoinHorizontal(lipgloss.Top, r, style.Render(m.boxModel.Tabs[i].View()))
 	}
 	return r
