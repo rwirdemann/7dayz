@@ -19,8 +19,8 @@ type Tab struct {
 	list.Model
 }
 
-func NewTab(title string, items []list.Item) Tab {
-	l := list.New(items, itemDelegate{boxTitle: title}, 0, 0)
+func NewTab(title string) Tab {
+	l := list.New(nil, itemDelegate{boxTitle: title}, 0, 0)
 	l.Title = title
 	l.SetShowTitle(false)
 	l.SetShowStatusBar(false)
@@ -69,8 +69,17 @@ type TabModel struct {
 }
 
 func NewTabModel(repository TaskRepository) TabModel {
+	m := TabModel{repository: repository, Focus: 0}
+	titles := []string{"Inbox", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"}
+	for _, t := range titles {
+		m.Tabs = append(m.Tabs, NewTab(t))
+	}
+	return m
+}
+
+func (m TabModel) Load() {
 	var tasksByDay = make(map[int][]list.Item)
-	tasks := repository.Load()
+	tasks := m.repository.Load()
 	for _, task := range tasks {
 		tasksByDay[task.Day] = append(tasksByDay[task.Day], task)
 	}
@@ -82,13 +91,11 @@ func NewTabModel(repository TaskRepository) TabModel {
 		})
 	}
 
-	m := TabModel{repository: repository, Focus: 0}
-	titles := []string{"Inbox", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"}
-	for i, t := range titles {
-		b := NewTab(t, tasksByDay[i])
-		m.Tabs = append(m.Tabs, b)
+	for day := range m.Tabs {
+		for i, item := range tasksByDay[day] {
+			m.Tabs[day].InsertItem(i, item)
+		}
 	}
-	return m
 }
 
 func (m TabModel) Save() {
@@ -103,11 +110,15 @@ func (m TabModel) Save() {
 	m.repository.Save(tasks)
 }
 
-func (m TabModel) Update(s string, box int) {
-	task := m.Tabs[box].SelectedItem().(Task)
+func (m TabModel) Add(s string) {
+	m.Tabs[m.Focus].InsertItem(0, Task{Name: s, Day: m.Focus})
+}
+
+func (m TabModel) Update(s string) {
+	task := m.Tabs[m.Focus].SelectedItem().(Task)
 	task.Name = s
-	m.Tabs[box].RemoveItem(m.Tabs[box].Index())
-	m.Tabs[box].InsertItem(m.Tabs[box].Index(), task)
+	m.Tabs[m.Focus].RemoveItem(m.Tabs[m.Focus].Index())
+	m.Tabs[m.Focus].InsertItem(m.Tabs[m.Focus].Index(), task)
 }
 
 func (m TabModel) NextTab() TabModel {
