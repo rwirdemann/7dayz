@@ -9,18 +9,17 @@ import (
 	"log/slog"
 	"sort"
 	"strings"
+	"time"
 )
 
-// ActiveTab represents the currently active box, identified by its title. The selection pointer is only rendered for
-// the currently active box.
-var ActiveTab = "Inbox"
+var ActiveTab = 0
 
 type Tab struct {
 	list.Model
 }
 
-func NewTab(title string) Tab {
-	l := list.New(nil, itemDelegate{boxTitle: title}, 0, 0)
+func NewTab(title string, number int) Tab {
+	l := list.New(nil, itemDelegate{panel: number}, 0, 0)
 	l.Title = title
 	l.SetShowTitle(false)
 	l.SetShowStatusBar(false)
@@ -66,18 +65,88 @@ type TabModel struct {
 	Tabs       []Tab
 	repository TaskRepository
 	Focus      int
+	Week       int
 }
 
-func NewTabModel(repository TaskRepository) TabModel {
-	m := TabModel{repository: repository, Focus: 0}
+func NewTabModel(repository TaskRepository, week int) TabModel {
+	m := TabModel{repository: repository, Focus: 0, Week: week}
 	titles := []string{"Inbox", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"}
-	for _, t := range titles {
-		m.Tabs = append(m.Tabs, NewTab(t))
+	for i, t := range titles {
+		tab := NewTab(t, i)
+		m.Tabs = append(m.Tabs, tab)
 	}
 	return m
 }
 
-func (m TabModel) Load() {
+// Get the date of Monday for the given week
+func getMondayOfWeek(week int) time.Time {
+	now := time.Now()
+
+	// Get January 1 of the current year
+	startOfYear := time.Date(now.Year(), time.January, 1, 0, 0, 0, 0, time.Local)
+
+	// Calculate the first Monday on or after January 1
+	firstMonday := startOfYear
+	for firstMonday.Weekday() != time.Monday {
+		firstMonday = firstMonday.AddDate(0, 0, 1)
+	}
+
+	// Add the offset for the given week (weeks start from 0)
+	daysToAdd := (week - 2) * 7
+	mondayOfWeek := firstMonday.AddDate(0, 0, daysToAdd)
+
+	return mondayOfWeek
+}
+
+func (m TabModel) NextWeek() TabModel {
+	m.Week += 1
+	weekday := getMondayOfWeek(m.Week)
+	for i := range m.Tabs {
+		if strings.HasPrefix(m.Tabs[i].Title, "Inbox") {
+			m.Tabs[i].Title = fmt.Sprintf("Inbox (Week %d)", m.Week)
+		} else {
+			title := strings.Split(m.Tabs[i].Title, " ")[0]
+
+			m.Tabs[i].Title = fmt.Sprintf("%s (%s)", title, weekday.Format("02.01.2006"))
+			weekday = weekday.AddDate(0, 0, 1)
+		}
+	}
+	return m
+}
+
+func (m TabModel) PrevWeek() TabModel {
+	if m.Week > 1 {
+		m.Week -= 1
+	} else {
+		return m
+	}
+	weekday := getMondayOfWeek(m.Week)
+	for i := range m.Tabs {
+		if strings.HasPrefix(m.Tabs[i].Title, "Inbox") {
+			m.Tabs[i].Title = fmt.Sprintf("Inbox (Week %d)", m.Week)
+		} else {
+			title := strings.Split(m.Tabs[i].Title, " ")[0]
+
+			m.Tabs[i].Title = fmt.Sprintf("%s (%s)", title, weekday.Format("02.01.2006"))
+			weekday = weekday.AddDate(0, 0, 1)
+		}
+	}
+	return m
+}
+
+func (m TabModel) Load(week int) {
+	weekday := getMondayOfWeek(week)
+	for i := range m.Tabs {
+		if strings.HasPrefix(m.Tabs[i].Title, "Inbox") {
+			m.Tabs[i].Title = fmt.Sprintf("Inbox (Week %d)", week)
+		} else {
+			title := strings.Split(m.Tabs[i].Title, " ")[0]
+
+			m.Tabs[i].Title = fmt.Sprintf("%s (%s)", title, weekday.Format("02.01.2006"))
+			weekday = weekday.AddDate(0, 0, 1)
+		}
+	}
+
 	var tasksByDay = make(map[int][]list.Item)
 	tasks := m.repository.Load()
 	for _, task := range tasks {
@@ -127,7 +196,7 @@ func (m TabModel) NextTab() TabModel {
 	} else {
 		m.Focus++
 	}
-	ActiveTab = m.Tabs[m.Focus].Title
+	ActiveTab = m.Focus
 	return m
 }
 
@@ -137,7 +206,7 @@ func (m TabModel) PreviousTab() TabModel {
 	} else {
 		m.Focus--
 	}
-	ActiveTab = m.Tabs[m.Focus].Title
+	ActiveTab = m.Focus
 	return m
 }
 func (m TabModel) MoveItem(to int) {
@@ -151,12 +220,12 @@ func (m TabModel) MoveItem(to int) {
 
 func (m TabModel) SelectTab(i int) TabModel {
 	m.Focus = i
-	ActiveTab = m.Tabs[i].Title
+	ActiveTab = m.Focus
 	return m
 }
 
 type itemDelegate struct {
-	boxTitle string
+	panel int
 }
 
 func (d itemDelegate) Height() int {
@@ -180,7 +249,7 @@ func (d itemDelegate) Render(w io.Writer, m list.Model, index int, listItem list
 	fn := lipgloss.NewStyle().Strikethrough(task.Done).PaddingLeft(2).Render
 
 	// Render selection pointer only for the currently active box.
-	if ActiveTab == d.boxTitle && index == m.Index() {
+	if ActiveTab == d.panel && index == m.Index() {
 		fn = func(s ...string) string {
 			return lipgloss.NewStyle().Strikethrough(task.Done).PaddingLeft(0).Foreground(lipgloss.Color("170")).Render("> " + strings.Join(s, " "))
 		}
