@@ -7,6 +7,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"io"
 	"log/slog"
+	"regexp"
 	"sort"
 	"strings"
 	"time"
@@ -175,7 +176,17 @@ func (m TabModel) Save() {
 }
 
 func (m TabModel) Add(s string) {
-	m.Tabs[m.Focus].InsertItem(0, Task{Name: s, Day: m.Focus})
+	// Find index of last task in list that starts with a time of format hh:mm
+	insertAt := -1
+	startsWithTime := regexp.MustCompile(`^\d{2}:\d{2}`)
+	for i, item := range m.Tabs[m.Focus].Items() {
+		if startsWithTime.MatchString(item.(Task).Name) {
+			insertAt = i
+		}
+	}
+
+	// Insert task behind first task with time or a position 0
+	m.Tabs[m.Focus].InsertItem(insertAt+1, Task{Name: s, Day: m.Focus})
 }
 
 func (m TabModel) Update(s string) {
