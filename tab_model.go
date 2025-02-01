@@ -177,16 +177,23 @@ func (m TabModel) Save() {
 
 func (m TabModel) Add(s string) {
 	// Find index of last task in list that starts with a time of format hh:mm
+	insertAt := indexOfLastScheduledTask(m.Tabs[m.Focus])
+
+	// Insert task behind first task with time or a position 0
+	m.Tabs[m.Focus].InsertItem(insertAt+1, Task{Name: s, Day: m.Focus})
+}
+
+// indexOfLastScheduledTask returns the index of the last task in the given tab whose name starts with a time in the
+// format hh:mm.
+func indexOfLastScheduledTask(tab Tab) int {
 	insertAt := -1
 	startsWithTime := regexp.MustCompile(`^\d{2}:\d{2}`)
-	for i, item := range m.Tabs[m.Focus].Items() {
+	for i, item := range tab.Items() {
 		if startsWithTime.MatchString(item.(Task).Name) {
 			insertAt = i
 		}
 	}
-
-	// Insert task behind first task with time or a position 0
-	m.Tabs[m.Focus].InsertItem(insertAt+1, Task{Name: s, Day: m.Focus})
+	return insertAt
 }
 
 func (m TabModel) Update(s string) {
@@ -220,7 +227,8 @@ func (m TabModel) MoveItem(to int) {
 		t := item.(Task)
 		m.Tabs[m.Focus].RemoveItem(m.Tabs[m.Focus].Index())
 		t.Day = to
-		m.Tabs[to].InsertItem(0, t)
+		insertAt := indexOfLastScheduledTask(m.Tabs[to])
+		m.Tabs[to].InsertItem(insertAt+1, t)
 	}
 }
 
