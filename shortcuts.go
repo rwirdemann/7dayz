@@ -1,4 +1,4 @@
-package _dayz
+package perpetask
 
 var (
 	KeyNextPanel = "tab"

@@ -2,7 +2,7 @@ package file
 
 import (
 	"encoding/json"
-	"github.com/rwirdemann/7dayz"
+	"github.com/rwirdemann/perpetask"
 	"io"
 	"log"
 	"os"
@@ -17,34 +17,34 @@ func init() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	base = home + "/.7d/"
+	base = home + "/.perpetask/"
 }
 
 type TaskRepository struct {
 }
 
-func (t TaskRepository) Load() []_dayz.Task {
+func (t TaskRepository) Load() []perpetask.Task {
 	file, err := os.Open(path.Join(base, "tasks.json"))
 	if err != nil {
 		log.Printf("Failed to open tasks.json: %v", err)
-		return []_dayz.Task{}
+		return []perpetask.Task{}
 	}
 	defer file.Close()
 
 	var tasks struct {
-		Tasks []_dayz.Task `json:"tasks"`
+		Tasks []perpetask.Task `json:"tasks"`
 	}
 
 	decoder := json.NewDecoder(file)
 	if err := decoder.Decode(&tasks); err != nil {
 		log.Printf("Failed to decode tasks.json: %v", err)
-		return []_dayz.Task{}
+		return []perpetask.Task{}
 	}
 
 	return tasks.Tasks
 }
 
-func (t TaskRepository) Save(tasks []_dayz.Task) {
+func (t TaskRepository) Save(tasks []perpetask.Task) {
 
 	// Archive existing tasks.json
 	archive()
@@ -56,7 +56,7 @@ func (t TaskRepository) Save(tasks []_dayz.Task) {
 	defer file.Close()
 
 	data := struct {
-		Tasks []_dayz.Task `json:"tasks"`
+		Tasks []perpetask.Task `json:"tasks"`
 	}{
 		Tasks: tasks,
 	}

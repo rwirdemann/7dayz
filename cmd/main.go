@@ -6,8 +6,8 @@ import (
 	"github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/muesli/termenv"
-	"github.com/rwirdemann/7dayz"
-	"github.com/rwirdemann/7dayz/file"
+	"github.com/rwirdemann/perpetask"
+	"github.com/rwirdemann/perpetask/file"
 	"os"
 	"strings"
 	"time"
@@ -46,7 +46,7 @@ func init() {
 }
 
 type model struct {
-	boxModel   _dayz.TabModel
+	boxModel   perpetask.TabModel
 	fullWidth  int
 	fullHeight int
 	textinput  textinput.Model
@@ -56,7 +56,7 @@ type model struct {
 
 func initialModel() model {
 	_, w := time.Now().ISOWeek()
-	tabModel := _dayz.NewTabModel(file.TaskRepository{}, w)
+	tabModel := perpetask.NewTabModel(file.TaskRepository{}, w)
 	tabModel.Load(w)
 	return model{
 		boxModel:  tabModel,
@@ -125,7 +125,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Quit
 
 		// Move focus to next box
-		case _dayz.KeyNextPanel:
+		case perpetask.KeyNextPanel:
 			m.boxModel = m.boxModel.NextTab()
 
 		// Move focus to prev box
@@ -154,7 +154,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Edit selected item in footer
 		case "enter":
 			selected := m.boxModel.Tabs[m.boxModel.Focus].SelectedItem()
-			m.textinput.SetValue(selected.(_dayz.Task).Name)
+			m.textinput.SetValue(selected.(perpetask.Task).Name)
 			m.textinput.Focus()
 			m.mode = edit
 			m.showHelp = false
@@ -167,7 +167,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		// Cross item off or on
 		case " ":
-			selected := m.boxModel.Tabs[m.boxModel.Focus].SelectedItem().(_dayz.Task)
+			selected := m.boxModel.Tabs[m.boxModel.Focus].SelectedItem().(perpetask.Task)
 			selected.Done = !selected.Done
 			m.boxModel.Tabs[m.boxModel.Focus].RemoveItem(m.boxModel.Tabs[m.boxModel.Focus].Index())
 			m.boxModel.Tabs[m.boxModel.Focus].InsertItem(m.boxModel.Tabs[m.boxModel.Focus].Index(), selected)
@@ -177,33 +177,33 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "t":
 			today := time.Now().Weekday()
 			m.boxModel.Focus = int(today)
-			_dayz.ActiveTab = m.boxModel.Focus
+			perpetask.ActiveTab = m.boxModel.Focus
 		case "?":
 			m.showHelp = !m.showHelp
 		case "alt+0":
 			m.boxModel.Focus = 0
-			_dayz.ActiveTab = m.boxModel.Focus
+			perpetask.ActiveTab = m.boxModel.Focus
 		case "alt+1":
 			m.boxModel.Focus = 1
-			_dayz.ActiveTab = m.boxModel.Focus
+			perpetask.ActiveTab = m.boxModel.Focus
 		case "alt+2":
 			m.boxModel.Focus = 2
-			_dayz.ActiveTab = m.boxModel.Focus
+			perpetask.ActiveTab = m.boxModel.Focus
 		case "alt+3":
 			m.boxModel.Focus = 3
-			_dayz.ActiveTab = m.boxModel.Focus
+			perpetask.ActiveTab = m.boxModel.Focus
 		case "alt+4":
 			m.boxModel.Focus = 4
-			_dayz.ActiveTab = m.boxModel.Focus
+			perpetask.ActiveTab = m.boxModel.Focus
 		case "alt+5":
 			m.boxModel.Focus = 5
-			_dayz.ActiveTab = m.boxModel.Focus
+			perpetask.ActiveTab = m.boxModel.Focus
 		case "alt+6":
 			m.boxModel.Focus = 6
-			_dayz.ActiveTab = m.boxModel.Focus
+			perpetask.ActiveTab = m.boxModel.Focus
 		case "alt+7":
 			m.boxModel.Focus = 7
-			_dayz.ActiveTab = m.boxModel.Focus
+			perpetask.ActiveTab = m.boxModel.Focus
 		case "right":
 			m.boxModel = m.boxModel.NextWeek()
 		case "left":
@@ -273,13 +273,13 @@ func (m model) View() string {
 
 func (m model) helpView() string {
 	return lipgloss.JoinHorizontal(0,
-		m.helpBlock("Panels", 11, 16, _dayz.General), "  ",
-		m.helpBlock("Task Editing", 11, 15, _dayz.Management), "  ",
-		m.helpBlock("Task Movement", 13, 20, _dayz.Movement), "  ",
-		m.helpBlock("Sorting", 12, 20, _dayz.Sorting))
+		m.helpBlock("Panels", 11, 16, perpetask.General), "  ",
+		m.helpBlock("Task Editing", 11, 15, perpetask.Management), "  ",
+		m.helpBlock("Task Movement", 13, 20, perpetask.Movement), "  ",
+		m.helpBlock("Sorting", 12, 20, perpetask.Sorting))
 }
 
-func (m model) helpBlock(title string, padding int, space int, keys []_dayz.Shortcut) string {
+func (m model) helpBlock(title string, padding int, space int, keys []perpetask.Shortcut) string {
 	block := helpHeaderStyle.Render(title)
 	for _, k := range keys {
 		block = lipgloss.JoinVertical(0, block, helpBlockStyle.Render(fmt.Sprintf("%*s%*s", padding, k.Key+" ", space, k.Desc)))
