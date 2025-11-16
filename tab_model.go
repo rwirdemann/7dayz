@@ -223,7 +223,7 @@ func (m TabModel) PreviousTab() TabModel {
 	return m
 }
 func (m TabModel) MoveItem(to int) {
-	if item := m.Tabs[m.Focus].SelectedItem(); item != nil && to < 7 && to >= 0 {
+	if item := m.Tabs[m.Focus].SelectedItem(); item != nil && to <= 7 && to >= 0 {
 		t := item.(Task)
 		m.Tabs[m.Focus].RemoveItem(m.Tabs[m.Focus].Index())
 		t.Day = to
