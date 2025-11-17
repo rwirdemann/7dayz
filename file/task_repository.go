@@ -2,12 +2,14 @@ package file
 
 import (
 	"encoding/json"
-	"github.com/rwirdemann/perpetask"
 	"io"
 	"log"
+	"log/slog"
 	"os"
 	"path"
 	"time"
+
+	"github.com/rwirdemann/perpetask"
 )
 
 var base = "tasks.json"
@@ -90,5 +92,5 @@ func archive() {
 		log.Printf("Failed to copy data to backup file: %v", err)
 		return
 	}
-	log.Printf("Backup of tasks.json created at %s", backupFileName)
+	slog.Debug("Backup of tasks.json created", "filename", backupFileName)
 }

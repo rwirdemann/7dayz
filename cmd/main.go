@@ -2,15 +2,16 @@ package main
 
 import (
 	"fmt"
+	"os"
+	"strings"
+	"time"
+
 	"github.com/charmbracelet/bubbles/textinput"
-	"github.com/charmbracelet/bubbletea"
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/muesli/termenv"
 	"github.com/rwirdemann/perpetask"
 	"github.com/rwirdemann/perpetask/file"
-	"os"
-	"strings"
-	"time"
 )
 
 const (
@@ -123,6 +124,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "ctrl+c", "q":
 			m.boxModel.Save()
 			return m, tea.Quit
+
+		// Save
+		case "s":
+			m.boxModel.Save()
 
 		// Move focus to next box
 		case perpetask.KeyNextPanel:
@@ -249,7 +254,7 @@ func (m model) View() string {
 	// Reduce height of second row to fit textinput or help underneath
 	gap := 0
 	if m.showHelp {
-		gap = 6
+		gap = 7
 	}
 
 	if m.mode != none {

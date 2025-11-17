@@ -15,6 +15,7 @@ var General = []Shortcut{
 	{KeyPrefPanel, "focus prev day"},
 	{"alt+0", "focus inbox"},
 	{"alt+{i}", "focus weekday"},
+	{"s", "save"},
 	{"?", "toggle help"},
 }
 
