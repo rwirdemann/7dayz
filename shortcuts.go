@@ -15,8 +15,6 @@ var General = []Shortcut{
 	{KeyPrefPanel, "focus prev day"},
 	{"alt+0", "focus inbox"},
 	{"alt+{i}", "focus weekday"},
-	{"s", "save"},
-	{"?", "toggle help"},
 }
 
 var Management = []Shortcut{
@@ -33,7 +31,9 @@ var Movement = []Shortcut{
 	{"shift+i", "move task to inbox"},
 }
 
-var Sorting = []Shortcut{
+var Misc = []Shortcut{
 	{"shift+up", "move task up"},
 	{"shift+down", "move task down"},
+	{"s", "save"},
+	{"?", "toggle help"},
 }

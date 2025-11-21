@@ -214,7 +214,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "left":
 			m.boxModel = m.boxModel.PrevWeek()
 		}
-
 	}
 	return m, tea.Batch(cmds...)
 }
@@ -254,7 +253,7 @@ func (m model) View() string {
 	// Reduce height of second row to fit textinput or help underneath
 	gap := 0
 	if m.showHelp {
-		gap = 7
+		gap = 5
 	}
 
 	if m.mode != none {
@@ -281,7 +280,7 @@ func (m model) helpView() string {
 		m.helpBlock("Panels", 11, 16, perpetask.General), "  ",
 		m.helpBlock("Task Editing", 11, 15, perpetask.Management), "  ",
 		m.helpBlock("Task Movement", 13, 20, perpetask.Movement), "  ",
-		m.helpBlock("Sorting", 12, 20, perpetask.Sorting))
+		m.helpBlock("Misc", 12, 15, perpetask.Misc))
 }
 
 func (m model) helpBlock(title string, padding int, space int, keys []perpetask.Shortcut) string {
